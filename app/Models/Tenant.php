@@ -17,7 +17,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     // Define our custom database column names
     protected $fillable = [
-        'id', 'name', 'barangay', 'email', 'subscription_plan', 'password', 'is_active', 'tenant_db'
+        'id', 'name', 'barangay', 'email', 'subscription_plan', 'password', 'is_active', 'tenant_db', 'valid_until'
     ];
 
     // Properties that should be included in JSON data
@@ -30,6 +30,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     protected $casts = [
         'data' => 'array',
         'is_active' => 'boolean',
+        'valid_until' => 'datetime',
     ];
 
     protected $hidden = ['password'];
@@ -96,5 +97,49 @@ class Tenant extends BaseTenant implements TenantWithDatabase
                 }
             }
         });
+    }
+
+    /**
+     * Check if the subscription has expired
+     */
+    public function isExpired(): bool
+    {
+        if (!$this->valid_until) {
+            return false; // If no expiration date set, assume not expired
+        }
+        
+        return now()->greaterThan($this->valid_until);
+    }
+    
+    /**
+     * Extend subscription based on plan
+     */
+    public function extendSubscription(string $plan = null): self
+    {
+        $plan = $plan ?? $this->subscription_plan;
+        
+        // Update the subscription plan if provided
+        if ($plan !== $this->subscription_plan) {
+            $this->subscription_plan = $plan;
+        }
+        
+        // Calculate months to add based on plan
+        $monthsToAdd = match (strtolower($plan)) {
+            'basic' => 2,
+            'essentials' => 3, 
+            'ultimate' => 6,
+            default => 1,
+        };
+        
+        // Start from current valid_until date if it exists and is in the future
+        // Otherwise start from now
+        $startDate = ($this->valid_until && $this->valid_until->greaterThan(now())) 
+            ? $this->valid_until 
+            : now();
+            
+        $this->valid_until = $startDate->copy()->addMonths($monthsToAdd);
+        $this->save();
+        
+        return $this;
     }
 }

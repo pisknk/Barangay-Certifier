@@ -26,6 +26,7 @@ class Kernel extends ConsoleKernel
         Commands\TestTenantActiveStatus::class,
         Commands\ShowTenantDatabases::class,
         Commands\InitializeTenantDatabases::class,
+        Commands\DisableExpiredTenants::class,
     ];
     
     /**
@@ -34,6 +35,12 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
+        
+        // Check for expired tenant subscriptions daily at midnight
+        $schedule->command('tenants:disable-expired')
+                ->daily()
+                ->at('00:01')
+                ->appendOutputTo(storage_path('logs/tenant-subscription-checks.log'));
     }
 
     /**
