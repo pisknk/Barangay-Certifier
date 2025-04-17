@@ -23,6 +23,10 @@ return [
         '127.0.0.1:8000',
         '.localhost',
         '.localhost:8000',
+        'onboarding.localhost',
+        'onboarding.localhost:8000',
+        'admin-panel.localhost',
+        'admin-panel.localhost:8000',
     ],
 
     /**

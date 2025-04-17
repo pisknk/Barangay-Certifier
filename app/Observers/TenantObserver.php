@@ -65,6 +65,38 @@ class TenantObserver
     {
         // Log for debugging
         Log::info("Saved tenant {$tenant->id}, is_active value: " . ($tenant->is_active ? 'true' : 'false'));
+        
+        // If this is a new tenant, schedule the admin user creation
+        if ($tenant->wasRecentlyCreated) {
+            Log::info("Scheduling admin user creation for new tenant: {$tenant->id}, wasRecentlyCreated=" . 
+                ($tenant->wasRecentlyCreated ? 'true' : 'false'));
+            
+            // Queue the command to run in background
+            $job = dispatch(function () use ($tenant) {
+                try {
+                    Log::info("Starting background job for tenant {$tenant->id} creation");
+                    
+                    // Make sure the tenant database exists and is migrated
+                    $dbOutput = \Artisan::call('tenant:create-db', ['tenant_id' => $tenant->id]);
+                    Log::info("Database creation for tenant {$tenant->id} completed with status {$dbOutput}");
+                    
+                    // Create admin user
+                    $userOutput = \Artisan::call('tenant:create-admin', ['tenant_id' => $tenant->id]);
+                    Log::info("Admin user creation for tenant {$tenant->id} completed with status {$userOutput}");
+                    
+                    Log::info("Admin user creation process completed for tenant: {$tenant->id}");
+                } catch (\Exception $e) {
+                    Log::error("Error during automatic admin user creation for tenant {$tenant->id}", [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
+            })->afterCommit(); // Makes sure the tenant transaction is committed first
+            
+            Log::info("Job dispatched for tenant {$tenant->id} with ID: " . ($job ? $job->id() : 'unknown'));
+        } else {
+            Log::info("Not creating admin - tenant {$tenant->id} was not recently created");
+        }
     }
 
     /**

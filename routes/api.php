@@ -10,3 +10,19 @@ Route::prefix('tenants')->group(function () {
     Route::patch('{id}/activate', [TenantController::class, 'activate']);
     Route::post('{id}/change-password', [TenantController::class, 'changePassword']);
 });
+
+// Debug endpoint for API testing
+Route::get('/debug', function () {
+    return [
+        'status' => 'success',
+        'message' => 'API is working correctly',
+        'timestamp' => now()->toIso8601String(),
+        'environment' => app()->environment(),
+        'request_info' => [
+            'ip' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'method' => request()->method(),
+            'url' => request()->fullUrl(),
+        ],
+    ];
+});

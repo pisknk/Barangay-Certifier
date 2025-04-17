@@ -34,7 +34,16 @@ class RouteServiceProvider extends ServiceProvider
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
 
-            // Web routes
+            // Subdomain routes
+            Route::middleware('web')
+                ->domain('onboarding.localhost')
+                ->group(base_path('routes/onboarding.php'));
+
+            Route::middleware('web')
+                ->domain('admin-panel.localhost')
+                ->group(base_path('routes/admin.php'));
+
+            // Web routes (central domain)
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
         });

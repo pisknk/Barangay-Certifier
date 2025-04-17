@@ -80,7 +80,10 @@ class TenantController extends Controller
 
             // Check if the tenant already exists
             if (Tenant::where('id', $tenantId)->exists()) {
+                if ($request->expectsJson()) {
                 return response()->json(['error' => 'This barangay name is already taken'], 422);
+                }
+                return redirect()->back()->with('error', 'This barangay name is already taken.');
             }
 
             // Insert directly into database to bypass model events initially
@@ -117,6 +120,7 @@ class TenantController extends Controller
             
             DB::commit();
 
+            if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Tenant created successfully. Awaiting activation.',
                 'tenant' => [
@@ -130,10 +134,18 @@ class TenantController extends Controller
                     'domain_url' => $domainUrl
                 ]
             ], 201);
+            }
+            
+            return redirect()->route('thanks');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating tenant: ' . $e->getMessage());
+            
+            if ($request->expectsJson()) {
             return response()->json(['error' => 'Failed to create tenant', 'details' => $e->getMessage()], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Failed to create tenant: ' . $e->getMessage());
         }
     }
 
@@ -251,6 +263,13 @@ class TenantController extends Controller
                 ]);
                 
                 Log::info("Global migration output for tenant {$tenant->id}: " . \Artisan::output());
+                
+                // Create admin user in tenant database
+                \Artisan::call('tenant:create-admin', [
+                    'tenant_id' => $tenant->id
+                ]);
+                
+                Log::info("Admin user creation output for {$tenant->id}: " . \Artisan::output());
                 
                 // End the tenant context
                 tenancy()->end();

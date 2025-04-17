@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
         Commands\ShowTenantDatabases::class,
         Commands\InitializeTenantDatabases::class,
         Commands\DisableExpiredTenants::class,
+        Commands\CreateTenantAdminUser::class,
     ];
     
     /**
