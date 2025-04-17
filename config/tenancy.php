@@ -19,6 +19,10 @@ return [
     'central_domains' => [
         '127.0.0.1',
         'localhost',
+        'localhost:8000',
+        '127.0.0.1:8000',
+        '.localhost',
+        '.localhost:8000',
     ],
 
     /**

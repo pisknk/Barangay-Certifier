@@ -156,29 +156,13 @@ class TenantController extends Controller
         try {
             $tenant = Tenant::findOrFail($id);
             
-            if ($tenant->is_active) {
-                return response()->json(['message' => 'Tenant is already active'], 422);
-            }
-            
-            // Generate a new temporary password
-            $tempPassword = Str::random(10);
+            // Generate a temporary password for the tenant
+            $tempPassword = Str::random(8);
             $tenant->password = Hash::make($tempPassword);
             $tenant->is_active = true;
-            
-            // Explicitly save and refresh from DB to ensure changes are applied
             $tenant->save();
-            
-            // Log the activation status for debugging
-            Log::info("Activated tenant {$tenant->id}, is_active value set to: " . ($tenant->is_active ? 'true' : 'false'));
-            
-            // Manually update using DB query to ensure it's saved
-            DB::table('tenants')->where('id', $tenant->id)->update(['is_active' => true]);
-            
-            // Refresh tenant from DB to get most up-to-date data
-            $tenant = Tenant::findOrFail($id);
-            
-            // Log the activation status after direct DB update
-            Log::info("After direct DB update, tenant {$tenant->id} is_active value is: " . ($tenant->is_active ? 'true' : 'false'));
+
+            Log::info("Tenant {$id} activated. Temporary password generated: {$tempPassword}");
 
             try {
                 // Get the domain
@@ -203,12 +187,21 @@ class TenantController extends Controller
                 // Initialize the tenant database and run migrations
                 tenancy()->initialize($tenant);
                 
-                // Run migrations for the tenant
-                $output = \Artisan::call('tenants:migrate', [
-                    '--tenants' => [$tenant->id],
+                // Run tenant-specific migrations
+                $outputMigrate = \Artisan::call('migrate', [
+                    '--path' => 'database/migrations/tenant',
+                    '--force' => true,
                 ]);
                 
-                Log::info("Migration output for tenant {$tenant->id}: " . \Artisan::output());
+                Log::info("Tenant-specific migration output for {$tenant->id}: " . \Artisan::output());
+                
+                // Run all migrations for tenant using the tenants:migrate command
+                $output = \Artisan::call('tenants:migrate', [
+                    '--tenants' => [$tenant->id],
+                    '--force' => true
+                ]);
+                
+                Log::info("Global migration output for tenant {$tenant->id}: " . \Artisan::output());
                 
                 // End the tenant context
                 tenancy()->end();
