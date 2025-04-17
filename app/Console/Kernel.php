@@ -16,6 +16,16 @@ class Kernel extends ConsoleKernel
         Commands\TestMail::class,
         Commands\CreateTenantDatabase::class,
         Commands\FixTenantActiveStatus::class,
+        Commands\CheckDomains::class,
+        Commands\MigrateTenantDatabases::class,
+        Commands\CreateTenantDomain::class,
+        Commands\FixTenantHosts::class,
+        Commands\CheckTenantDatabases::class,
+        Commands\DeactivateTenant::class,
+        Commands\ReactivateTenant::class,
+        Commands\TestTenantActiveStatus::class,
+        Commands\ShowTenantDatabases::class,
+        Commands\InitializeTenantDatabases::class,
     ];
     
     /**

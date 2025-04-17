@@ -143,6 +143,24 @@ class TenantController extends Controller
             $tenant = Tenant::findOrFail($id);
             $tenant->is_active = false;
             $tenant->save();
+            
+            // Also update directly in the database to ensure changes are applied
+            DB::table('tenants')->where('id', $id)->update([
+                'is_active' => false,
+                'updated_at' => now()
+            ]);
+            
+            // Verify the change
+            $updatedTenant = DB::table('tenants')->where('id', $id)->first();
+            $isNowInactive = $updatedTenant && !$updatedTenant->is_active;
+            
+            if (!$isNowInactive) {
+                Log::warning("Tenant {$id} deactivation flag wasn't properly set. Trying again...");
+                // Try one more time
+                DB::table('tenants')->where('id', $id)->update(['is_active' => false]);
+            }
+            
+            Log::info("Tenant {$id} deactivated. Inactive status: " . ($isNowInactive ? 'Yes' : 'No'));
 
             return response()->json(['message' => 'Tenant deactivated successfully']);
         } catch (\Exception $e) {
@@ -161,8 +179,25 @@ class TenantController extends Controller
             $tenant->password = Hash::make($tempPassword);
             $tenant->is_active = true;
             $tenant->save();
+            
+            // Also update directly in the database to ensure changes are applied
+            DB::table('tenants')->where('id', $id)->update([
+                'is_active' => true,
+                'password' => Hash::make($tempPassword),
+                'updated_at' => now()
+            ]);
+            
+            // Verify the change was applied
+            $updatedTenant = DB::table('tenants')->where('id', $id)->first();
+            $isNowActive = $updatedTenant && $updatedTenant->is_active;
+            
+            if (!$isNowActive) {
+                Log::warning("Tenant {$id} activation flag wasn't properly set. Trying again...");
+                // Try one more time
+                DB::table('tenants')->where('id', $id)->update(['is_active' => true]);
+            }
 
-            Log::info("Tenant {$id} activated. Temporary password generated: {$tempPassword}");
+            Log::info("Tenant {$id} activated. Temporary password generated: {$tempPassword}. Active status: " . ($isNowActive ? 'Yes' : 'No'));
 
             try {
                 // Get the domain
@@ -175,14 +210,28 @@ class TenantController extends Controller
                 $dbUsername = config('database.connections.' . $dbConnection . '.username');
                 $dbPassword = config('database.connections.' . $dbConnection . '.password');
                 
-                // Database name with prefix
-                $dbName = 'tenant_' . $tenant->id;
+                // Use existing database name if available, otherwise create a new one
+                $dbName = $tenant->tenant_db;
+                
+                if (empty($dbName)) {
+                    // Database name with prefix
+                    $dbName = 'tenant_' . $tenant->id;
+                    
+                    // Update the tenant record with the database name
+                    $tenant->tenant_db = $dbName;
+                    $tenant->save();
+                    
+                    // Also update directly to be sure
+                    DB::table('tenants')->where('id', $tenant->id)->update([
+                        'tenant_db' => $dbName
+                    ]);
+                }
                 
                 // Create database if it doesn't exist
                 $createDbSQL = "CREATE DATABASE IF NOT EXISTS `{$dbName}`";
                 DB::statement($createDbSQL);
                 
-                Log::info("Created database for tenant {$tenant->id}: {$dbName}");
+                Log::info("Using database for tenant {$tenant->id}: {$dbName}");
                 
                 // Initialize the tenant database and run migrations
                 tenancy()->initialize($tenant);

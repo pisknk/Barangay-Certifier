@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class MigrateTenantDatabases extends Command
 {
@@ -27,6 +28,26 @@ class MigrateTenantDatabases extends Command
             $this->info("Migrating database for tenant: {$tenant->id}");
             
             try {
+                // Ensure tenant has a database name
+                if (empty($tenant->tenant_db)) {
+                    $dbName = 'tenant_' . $tenant->id;
+                    $tenant->tenant_db = $dbName;
+                    $tenant->save();
+                    
+                    // Also update directly to be sure
+                    DB::table('tenants')->where('id', $tenant->id)->update([
+                        'tenant_db' => $dbName
+                    ]);
+                    
+                    $this->info("Set database name for tenant {$tenant->id} to: {$dbName}");
+                } else {
+                    $this->info("Using existing database for tenant {$tenant->id}: {$tenant->tenant_db}");
+                }
+                
+                // Ensure database exists
+                $createDbSQL = "CREATE DATABASE IF NOT EXISTS `{$tenant->tenant_db}`";
+                DB::statement($createDbSQL);
+                
                 // Initialize the tenant context
                 tenancy()->initialize($tenant);
                 

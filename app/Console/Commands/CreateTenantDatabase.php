@@ -80,14 +80,32 @@ class CreateTenantDatabase extends Command
                 return;
             }
             
-            // Database name with prefix
-            $dbName = 'tenant_' . $tenant->id;
+            // Use existing database name or create a new one
+            $dbName = $tenant->tenant_db;
+            
+            if (empty($dbName)) {
+                // Database name with prefix
+                $dbName = 'tenant_' . $tenant->id;
+                
+                // Update the tenant record with the database name
+                $tenant->tenant_db = $dbName;
+                $tenant->save();
+                
+                // Also update directly to be sure
+                DB::table('tenants')->where('id', $tenant->id)->update([
+                    'tenant_db' => $dbName
+                ]);
+                
+                $this->info("Set database name for tenant {$tenantId} to: {$dbName}");
+            } else {
+                $this->info("Using existing database for tenant {$tenantId}: {$dbName}");
+            }
             
             // Create database if it doesn't exist
             $createDbSQL = "CREATE DATABASE IF NOT EXISTS `{$dbName}`";
             DB::statement($createDbSQL);
             
-            $this->info("Database created: {$dbName}");
+            $this->info("Database ensured: {$dbName}");
             
             // Initialize the tenant database and run migrations
             $this->info("Running migrations for tenant: {$tenantId}");
