@@ -152,27 +152,40 @@ class TenantController extends Controller
     public function deactivate($id)
     {
         try {
-            $tenant = Tenant::findOrFail($id);
-            $tenant->is_active = false;
-            $tenant->save();
+            // Use App\Models\Tenant explicitly to avoid namespace conflicts
+            $tenant = \App\Models\Tenant::findOrFail($id);
             
-            // Also update directly in the database to ensure changes are applied
-            DB::table('tenants')->where('id', $id)->update([
-                'is_active' => false,
-                'updated_at' => now()
-            ]);
+            // Log before deactivation
+            Log::info("Attempting to deactivate tenant {$id}. Current status: " . $tenant->is_active);
             
-            // Verify the change
-            $updatedTenant = DB::table('tenants')->where('id', $id)->first();
-            $isNowInactive = $updatedTenant && !$updatedTenant->is_active;
+            // Use the deactivate method that sets is_active to DEACTIVATED (2)
+            $tenant->deactivate();
             
-            if (!$isNowInactive) {
-                Log::warning("Tenant {$id} deactivation flag wasn't properly set. Trying again...");
-                // Try one more time
-                DB::table('tenants')->where('id', $id)->update(['is_active' => false]);
+            // Force refresh from database to get the latest values
+            DB::table('tenants')
+                ->where('id', $id)
+                ->update([
+                    'is_active' => \App\Models\Tenant::DEACTIVATED
+                ]);
+                
+            // Verify deactivation by querying the database directly
+            $checkTenant = DB::table('tenants')->where('id', $id)->first();
+            $isDeactivated = $checkTenant && $checkTenant->is_active == \App\Models\Tenant::DEACTIVATED;
+            
+            Log::info("Tenant {$id} deactivated through API. " . 
+                "New is_active status in DB: " . ($checkTenant ? $checkTenant->is_active : 'unknown') . ". " .
+                "Successfully deactivated: " . ($isDeactivated ? 'Yes' : 'No'));
+            
+            if (!$isDeactivated) {
+                // If not deactivated, force it directly
+                Log::warning("Tenant {$id} not properly deactivated. Forcing direct DB update.");
+                DB::table('tenants')
+                    ->where('id', $id)
+                    ->update([
+                        'is_active' => \App\Models\Tenant::DEACTIVATED,
+                        'updated_at' => now()
+                    ]);
             }
-            
-            Log::info("Tenant {$id} deactivated. Inactive status: " . ($isNowInactive ? 'Yes' : 'No'));
 
             return response()->json(['message' => 'Tenant deactivated successfully']);
         } catch (\Exception $e) {
@@ -184,32 +197,54 @@ class TenantController extends Controller
     public function activate($id)
     {
         try {
-            $tenant = Tenant::findOrFail($id);
+            // Use App\Models\Tenant explicitly to avoid namespace conflicts
+            $tenant = \App\Models\Tenant::findOrFail($id);
+            
+            // Store current status before changing
+            $previousStatus = $tenant->is_active;
             
             // Generate a temporary password for the tenant
             $tempPassword = Str::random(8);
             $tenant->password = Hash::make($tempPassword);
-            $tenant->is_active = true;
-            $tenant->save();
             
-            // Also update directly in the database to ensure changes are applied
-            DB::table('tenants')->where('id', $id)->update([
-                'is_active' => true,
-                'password' => Hash::make($tempPassword),
-                'updated_at' => now()
-            ]);
+            // Check if this was an expired subscription or inactive (new) tenant
+            $wasExpired = $tenant->is_active == \App\Models\Tenant::EXPIRED;
+            $wasInactive = $tenant->is_active == \App\Models\Tenant::INACTIVE;
             
-            // Verify the change was applied
-            $updatedTenant = DB::table('tenants')->where('id', $id)->first();
-            $isNowActive = $updatedTenant && $updatedTenant->is_active;
-            
-            if (!$isNowActive) {
-                Log::warning("Tenant {$id} activation flag wasn't properly set. Trying again...");
-                // Try one more time
-                DB::table('tenants')->where('id', $id)->update(['is_active' => true]);
+            // Only set valid_until date if tenant was inactive (0) or expired (3)
+            // Do not set it if tenant was deactivated by admin (2)
+            if ($wasInactive || $wasExpired || $tenant->isExpired()) {
+                Log::info("Setting expiration date for tenant {$id} with previous status: {$previousStatus}, plan: {$tenant->subscription_plan}");
+                
+                // Extend subscription based on plan
+                $now = now();
+                if (str_contains($tenant->subscription_plan, 'Basic')) {
+                    $tenant->valid_until = $now->addMonth();
+                } elseif (str_contains($tenant->subscription_plan, 'Essentials')) {
+                    $tenant->valid_until = $now->addMonths(6);
+                } elseif (str_contains($tenant->subscription_plan, 'Ultimate')) {
+                    $tenant->valid_until = $now->addYear();
+                } else {
+                    // Default to 1 month for unknown plans
+                    $tenant->valid_until = $now->addMonth();
+                }
+                
+                // Save the valid_until field
+                DB::table('tenants')
+                    ->where('id', $tenant->id)
+                    ->update([
+                        'valid_until' => $tenant->valid_until,
+                    ]);
+                
+                Log::info("Extended subscription for tenant {$id} until {$tenant->valid_until}");
+            } else {
+                Log::info("Preserving existing expiration date for tenant {$id} (previous status: {$previousStatus})");
             }
-
-            Log::info("Tenant {$id} activated. Temporary password generated: {$tempPassword}. Active status: " . ($isNowActive ? 'Yes' : 'No'));
+            
+            // Use the activate method which will set is_active to ACTIVE (1)
+            $tenant->activate();
+            
+            Log::info("Tenant {$id} activated through API. Status: " . $tenant->is_active . " with valid_until: " . $tenant->valid_until);
 
             try {
                 // Get the domain
@@ -230,8 +265,7 @@ class TenantController extends Controller
                     $dbName = 'tenant_' . $tenant->id;
                     
                     // Update the tenant record with the database name
-                    $tenant->tenant_db = $dbName;
-                    $tenant->save();
+                    $tenant->setDatabaseName($dbName);
                     
                     // Also update directly to be sure
                     DB::table('tenants')->where('id', $tenant->id)->update([
@@ -286,6 +320,7 @@ class TenantController extends Controller
                 return response()->json([
                     'message' => 'Tenant activated successfully and database created.',
                     'domain' => $domainUrl,
+                    'valid_until' => $tenant->valid_until,
                     'temp_password' => $tempPassword // Include this for testing purposes only, remove in production
                 ]);
             } catch (\Exception $innerEx) {

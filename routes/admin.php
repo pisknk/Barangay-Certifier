@@ -75,6 +75,27 @@ Route::get('/tenants/{id}/edit', function ($id) {
     return app()->call([app(AdminController::class), 'edit'], ['id' => $id]);
 })->name('admin.tenants.edit');
 
+// Add tenant update, toggle status, update plan, and delete routes
+Route::put('/tenants/{id}', function ($id) {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(AdminController::class), 'update'], ['id' => $id]);
+})->name('admin.tenants.update');
+
+Route::put('/tenants/{id}/toggle', function ($id) {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(AdminController::class), 'toggleStatus'], ['id' => $id]);
+})->name('admin.tenants.toggle');
+
+Route::put('/tenants/{id}/update-plan', function ($id) {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(AdminController::class), 'updatePlan'], ['id' => $id]);
+})->name('admin.tenants.update-plan');
+
+Route::delete('/tenants/{id}', function ($id) {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(AdminController::class), 'destroy'], ['id' => $id]);
+})->name('admin.tenants.destroy');
+
 // Logout route
 Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 

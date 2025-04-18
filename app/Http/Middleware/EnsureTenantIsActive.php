@@ -36,6 +36,13 @@ class EnsureTenantIsActive
                 // Log if subscription is expired
                 if ($isExpired) {
                     Log::info("Tenant {$tenant->id} subscription expired on {$tenant->valid_until}");
+                    
+                    // If tenant is not already marked as expired, mark it now
+                    if ($isActiveModel !== \App\Models\Tenant::EXPIRED) {
+                        $tenant->markAsExpired(); // This preserves the valid_until date for future reactivation
+                        Log::info("Tenant {$tenant->id} marked as expired during middleware check");
+                        $isActiveModel = \App\Models\Tenant::EXPIRED;
+                    }
                 }
             }
             
@@ -47,8 +54,8 @@ class EnsureTenantIsActive
                         ->first();
             $isActiveDb = $dbTenant && $dbTenant->is_active;
             
-            // Combine results - active if either says it's active AND not expired
-            $isActive = ($isActiveModel || $isActiveDb) && !$isExpired;
+            // Combine results - active if status is ACTIVE (1) AND not expired
+            $isActive = ($isActiveModel == \App\Models\Tenant::ACTIVE) && !$isExpired;
             
             // Log any discrepancies for debugging
             if ($isActiveModel !== $isActiveDb) {
@@ -62,7 +69,7 @@ class EnsureTenantIsActive
             $reason = 'Account deactivated';
             if (!$tenant) {
                 $reason = 'Tenant not found';
-            } elseif ($isExpired) {
+            } elseif ($isExpired || $isActiveModel == \App\Models\Tenant::EXPIRED) {
                 $reason = 'Subscription expired';
             }
             

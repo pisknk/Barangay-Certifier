@@ -7,6 +7,7 @@ use Stancl\Tenancy\Database\Models\Tenant;
 use Stancl\Tenancy\Database\Models\Domain;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -107,7 +108,19 @@ class AdminController extends Controller
      */
     public function edit($id)
     {
+        // Query directly from the DB to ensure up-to-date data
+        $rawTenant = DB::table('tenants')->where('id', $id)->first();
+        
+        if (!$rawTenant) {
+            abort(404, 'Tenant not found');
+        }
+        
+        // Get the Eloquent model
         $tenant = Tenant::findOrFail($id);
+        
+        // Ensure the is_active property is properly cast for the view
+        $tenant->is_active = (int)$rawTenant->is_active;
+        
         return view('admin.modifytenant', compact('tenant'));
     }
 
@@ -123,11 +136,28 @@ class AdminController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+            'subscription_plan' => 'nullable|string|in:Basic P399,Essentials P799,Ultimate P1299',
         ]);
 
         $tenant = Tenant::findOrFail($id);
         $tenant->name = $request->name;
         $tenant->email = $request->email;
+        
+        // Handle subscription plan update if provided
+        if ($request->has('subscription_plan')) {
+            $tenant->subscription_plan = $request->subscription_plan;
+            
+            // Update valid_until based on the plan
+            $now = now();
+            if ($request->subscription_plan == 'Basic P399') {
+                $tenant->valid_until = $now->addMonth();
+            } elseif ($request->subscription_plan == 'Essentials P799') {
+                $tenant->valid_until = $now->addMonths(6);
+            } elseif ($request->subscription_plan == 'Ultimate P1299') {
+                $tenant->valid_until = $now->addYear();
+            }
+        }
+        
         $tenant->save();
 
         return redirect()->route('admin.tenants')->with('success', 'Tenant updated successfully');
@@ -141,11 +171,45 @@ class AdminController extends Controller
      */
     public function toggleStatus($id)
     {
-        $tenant = Tenant::findOrFail($id);
-        $tenant->is_active = !$tenant->is_active;
-        $tenant->save();
+        // Use App\Models\Tenant explicitly to avoid namespace conflicts
+        $tenant = \App\Models\Tenant::findOrFail($id);
+        
+        // Check current status and toggle
+        if ($tenant->is_active == 1) {
+            // Deactivate the tenant (admin deactivation = 2)
+            $tenant->deactivate();
+            $status = 'deactivated';
+        } else {
+            // Capture the previous status before activation
+            $previousStatus = $tenant->is_active;
+            
+            // Activate the tenant (active = 1)
+            $tenant->activate();
+            
+            // Only update valid_until if previous status was INACTIVE (0) or EXPIRED (3)
+            if ($previousStatus == \App\Models\Tenant::INACTIVE || $previousStatus == \App\Models\Tenant::EXPIRED) {
+                // Extend subscription based on plan
+                $now = now();
+                if (str_contains($tenant->subscription_plan, 'Basic')) {
+                    $tenant->valid_until = $now->addMonth();
+                } elseif (str_contains($tenant->subscription_plan, 'Essentials')) {
+                    $tenant->valid_until = $now->addMonths(6);
+                } elseif (str_contains($tenant->subscription_plan, 'Ultimate')) {
+                    $tenant->valid_until = $now->addYear();
+                } else {
+                    // Default to 1 month for unknown plans
+                    $tenant->valid_until = $now->addMonth();
+                }
+                
+                // Save the valid_until field
+                $tenant->save();
+                
+                Log::info("Extended subscription for tenant {$id} until {$tenant->valid_until}");
+            }
+            
+            $status = 'activated';
+        }
 
-        $status = $tenant->is_active ? 'activated' : 'deactivated';
         return redirect()->back()->with('success', "Tenant {$status} successfully");
     }
 

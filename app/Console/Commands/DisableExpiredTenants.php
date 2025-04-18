@@ -14,14 +14,14 @@ class DisableExpiredTenants extends Command
      *
      * @var string
      */
-    protected $signature = 'tenants:disable-expired';
+    protected $signature = 'tenants:mark-expired';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Automatically disable tenants with expired subscriptions';
+    protected $description = 'Automatically mark tenants with expired subscriptions as expired';
 
     /**
      * Execute the console command.
@@ -31,7 +31,7 @@ class DisableExpiredTenants extends Command
         $this->info('Checking for expired tenant subscriptions...');
         
         // Get all active tenants with expired subscription dates
-        $expiredTenants = Tenant::where('is_active', true)
+        $expiredTenants = Tenant::where('is_active', Tenant::ACTIVE)
             ->whereNotNull('valid_until')
             ->where('valid_until', '<', now())
             ->get();
@@ -43,28 +43,22 @@ class DisableExpiredTenants extends Command
             return 0;
         }
         
-        $this->info("Found {$count} expired tenant subscriptions. Disabling...");
+        $this->info("Found {$count} expired tenant subscriptions. Marking as expired...");
         
         // Process each expired tenant
         foreach ($expiredTenants as $tenant) {
             try {
-                $this->info("Disabling tenant: {$tenant->id} (expired on {$tenant->valid_until->format('Y-m-d')})");
+                $this->info("Marking tenant as expired: {$tenant->id} (expired on {$tenant->valid_until->format('Y-m-d')})");
                 
-                // Disable the tenant
-                $tenant->is_active = false;
-                $tenant->save();
-                
-                // Double-check via direct DB update to ensure it's updated
-                DB::table('tenants')
-                    ->where('id', $tenant->id)
-                    ->update(['is_active' => false]);
+                // Mark the tenant as expired - this preserves the valid_until date for future reactivation
+                $tenant->markAsExpired();
                 
                 // Log the action
-                Log::info("Tenant {$tenant->id} automatically disabled due to subscription expiration on {$tenant->valid_until}");
+                Log::info("Tenant {$tenant->id} automatically marked as expired due to subscription expiration on {$tenant->valid_until}");
                 
             } catch (\Exception $e) {
-                $this->error("Error disabling tenant {$tenant->id}: {$e->getMessage()}");
-                Log::error("Error disabling expired tenant {$tenant->id}", [
+                $this->error("Error marking tenant {$tenant->id}: {$e->getMessage()}");
+                Log::error("Error marking expired tenant {$tenant->id}", [
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);

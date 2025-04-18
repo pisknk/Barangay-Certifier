@@ -38,7 +38,7 @@ class Kernel extends ConsoleKernel
         // $schedule->command('inspire')->hourly();
         
         // Check for expired tenant subscriptions daily at midnight
-        $schedule->command('tenants:disable-expired')
+        $schedule->command('tenants:mark-expired')
                 ->daily()
                 ->at('00:01')
                 ->appendOutputTo(storage_path('logs/tenant-subscription-checks.log'));

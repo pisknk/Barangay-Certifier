@@ -23,13 +23,21 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     // Properties that should be included in JSON data
     public static function getCustomColumns(): array
     {
-        return [];
+        return [
+            'name',
+            'barangay',
+            'email',
+            'subscription_plan',
+            'is_active',
+            'tenant_db',
+            'valid_until'
+        ];
     }
 
     // Make sure data JSON column is properly managed
     protected $casts = [
         'data' => 'array',
-        'is_active' => 'boolean',
+        'is_active' => 'integer',
         'valid_until' => 'datetime',
     ];
 
@@ -37,9 +45,15 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     // Default values
     protected $attributes = [
-        'is_active' => false,
+        'is_active' => 0,
         'data' => '{}',
     ];
+    
+    // Constants for active states
+    const INACTIVE = 0;    // Not active
+    const ACTIVE = 1;      // Active
+    const DEACTIVATED = 2; // Manually deactivated by admin
+    const EXPIRED = 3;     // Subscription expired
     
     /**
      * Get a new instance of the model.
@@ -112,6 +126,91 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     }
     
     /**
+     * Mark tenant as expired
+     */
+    public function markAsExpired(): self
+    {
+        $this->is_active = self::EXPIRED;
+        
+        // Make sure to update both the direct column and the data attribute
+        if (is_array($this->data)) {
+            $this->data['is_active'] = false;
+        }
+        
+        // Use direct DB update to ensure both places are updated and preserve valid_until
+        DB::table('tenants')
+            ->where('id', $this->id)
+            ->update([
+                'is_active' => self::EXPIRED,
+                'data' => json_encode(is_array($this->data) ? $this->data : []),
+                'updated_at' => now()
+            ]);
+        
+        // Refresh the model from the database instead of saving
+        $this->refresh();
+        
+        return $this;
+    }
+    
+    /**
+     * Activate the tenant
+     */
+    public function activate(): self
+    {
+        // Store previous status before changing
+        $previousStatus = $this->is_active;
+        
+        // Set active status
+        $this->is_active = self::ACTIVE;
+        
+        // Make sure to update both the direct column and the data attribute
+        if (is_array($this->data)) {
+            $this->data['is_active'] = true;
+        }
+        
+        // Use direct DB update to ensure both places are updated
+        DB::table('tenants')
+            ->where('id', $this->id)
+            ->update([
+                'is_active' => self::ACTIVE,
+                'data' => json_encode(is_array($this->data) ? $this->data : []),
+                'updated_at' => now()
+            ]);
+        
+        // Refresh the model from the database instead of saving
+        $this->refresh();
+        
+        return $this;
+    }
+    
+    /**
+     * Deactivate the tenant
+     */
+    public function deactivate(): self
+    {
+        $this->is_active = self::DEACTIVATED;
+        
+        // Make sure to update both the direct column and the data attribute
+        if (is_array($this->data)) {
+            $this->data['is_active'] = false;
+        }
+        
+        // Use direct DB update to ensure both places are updated and preserve valid_until
+        DB::table('tenants')
+            ->where('id', $this->id)
+            ->update([
+                'is_active' => self::DEACTIVATED,
+                'data' => json_encode(is_array($this->data) ? $this->data : []),
+                'updated_at' => now()
+            ]);
+            
+        // Refresh the model from the database instead of saving
+        $this->refresh();
+        
+        return $this;
+    }
+    
+    /**
      * Extend subscription based on plan
      */
     public function extendSubscription(string $plan = null): self
@@ -141,5 +240,33 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         $this->save();
         
         return $this;
+    }
+
+    /**
+     * Override the save method to prevent serialization issues
+     */
+    public function save(array $options = [])
+    {
+        // Ensure we have an empty array for data if it's null
+        if (!isset($this->attributes['data']) || is_null($this->attributes['data'])) {
+            $this->attributes['data'] = '{}';
+        }
+        
+        return parent::save($options);
+    }
+    
+    /**
+     * Override the toArray method to prevent serialization issues
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Ensure data is always an array
+        if (!isset($array['data'])) {
+            $array['data'] = [];
+        }
+        
+        return $array;
     }
 }

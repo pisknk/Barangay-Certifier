@@ -73,11 +73,17 @@
                     </p>
                   </td>
                   <td class="align-middle text-center text-sm">
-                    @if($tenant->is_active)
-                    <span class="badge badge-sm bg-gradient-success">Subscribed and Online</span>
-                    @else
-                    <span class="badge badge-sm bg-gradient-secondary">Not yet Activated</span>
-                    @endif
+                    @php
+                    $statusMap = [
+                      0 => ['class' => 'bg-secondary', 'text' => 'Not Active'],
+                      1 => ['class' => 'bg-success', 'text' => 'Subscribed'],
+                      2 => ['class' => 'bg-warning', 'text' => 'Disabled by Admin'],
+                      3 => ['class' => 'bg-danger', 'text' => 'Expired Subscription']
+                    ];
+                    $status = isset($tenant->is_active) ? (int)$tenant->is_active : 0;
+                    $statusInfo = $statusMap[$status] ?? $statusMap[0];
+                    @endphp
+                    <span class="badge badge-sm {{ $statusInfo['class'] }}">{{ $statusInfo['text'] }}</span>
                   </td>
                   <td class="align-middle text-center">
                     <span class="text-secondary text-xs font-weight-bold">
@@ -132,9 +138,9 @@
                     </p>
                   </td>
                   <td class="align-middle text-center text-sm">
-                    <span class="badge badge-sm bg-gradient-success"
-                      >Subscribed and Online</span
-                    ><!-- base this on the "isActive": 1 field in the "tenants" table -->
+                    <span class="badge badge-sm bg-success"
+                      >Subscribed</span
+                    >
                   </td>
                   <td class="align-middle text-center">
                     <span class="text-secondary text-xs font-weight-bold"
