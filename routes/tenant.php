@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\CustomInitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Middleware\EnsureTenantIsActive;
+use App\Http\Controllers\Tenant\TenantUserController;
+use App\Http\Controllers\Tenant\TestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,25 +21,25 @@ use App\Http\Middleware\EnsureTenantIsActive;
 |
 */
 
-// Set InitializeTenancyByDomain first to ensure the tenant is properly identified
-Route::middleware([
-    'web',
+// Common middleware for all tenant routes
+$tenantMiddleware = [
     CustomInitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
     EnsureTenantIsActive::class,
-])->group(function () {
+];
+
+// Web Routes
+Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
     Route::get('/', function () {
         $tenant = tenant();
         return 'This is your multi-tenant application. The id of the current tenant is ' . ($tenant ? $tenant->id : 'undefined');
     });
 
-    // Add more tenant-specific routes here
     Route::get('/dashboard', function () {
         $tenant = tenant();
         return 'Welcome to your tenant dashboard! Your tenant ID is: ' . ($tenant ? $tenant->id : 'undefined');
     });
     
-    // Debug route to check domain
     Route::get('/debug-domain', function () {
         return [
             'host' => request()->getHost(),
@@ -49,3 +51,33 @@ Route::middleware([
         ];
     });
 });
+
+// API Routes
+Route::middleware(array_merge(['api'], $tenantMiddleware))
+    ->prefix('api')
+    ->group(function () {
+        // Tenant User CRUD Routes
+        Route::prefix('users')->group(function () {
+            Route::get('/', [TenantUserController::class, 'index']);
+            Route::post('/', [TenantUserController::class, 'store']);
+            Route::get('/{id}', [TenantUserController::class, 'show']);
+            Route::put('/{id}', [TenantUserController::class, 'update']);
+            Route::delete('/{id}', [TenantUserController::class, 'destroy']);
+        });
+        
+        // Test routes
+        Route::prefix('test')->group(function () {
+            Route::get('/users', [TestController::class, 'testTenantUsers']);
+            Route::post('/create-user', [TestController::class, 'createTestUser']);
+        });
+        
+        // API health check
+        Route::get('/health-check', function () {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Tenant API is working',
+                'tenant_id' => tenant('id'),
+                'timestamp' => now()->toIso8601String()
+            ]);
+        });
+    });
