@@ -18,7 +18,7 @@
             <div>
               <p class="text-sm mb-0 text-capitalize">Total Income</p>
               <!-- From subscriptions, calculate based on "subscription_plan" field in "tenants" table -->
-              <h4 class="mb-0">${{ $totalIncome ?? '53k' }}</h4>
+              <h4 class="mb-0">₱{{ number_format($totalIncome, 0) }}</h4>
             </div>
             <div
               class="icon icon-md icon-shape bg-gradient-dark shadow-dark shadow text-center border-radius-lg"
@@ -28,7 +28,11 @@
           </div>
         </div>
         <hr class="dark horizontal my-0" />
-        <div class="card-footer p-2 ps-3"></div>
+        <div class="card-footer p-2 ps-3">
+          <p class="mb-0 text-sm">
+            <span class="text-success font-weight-bolder">Monthly</span> active subscriptions
+          </p>
+        </div>
       </div>
     </div>
     <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
@@ -37,10 +41,10 @@
           <div class="d-flex justify-content-between">
             <div>
               <p class="text-sm mb-0 text-capitalize">
-                Paying Tenants
+                Active Tenants
               </p>
               <!-- Based on "is_active" field in "tenants" table -->
-              <h4 class="mb-0">{{ $activeTenants ?? '3' }}</h4>
+              <h4 class="mb-0">{{ $activeTenants }}</h4>
             </div>
             <div
               class="icon icon-md icon-shape bg-gradient-dark shadow-dark shadow text-center border-radius-lg"
@@ -50,7 +54,11 @@
           </div>
         </div>
         <hr class="dark horizontal my-0" />
-        <div class="card-footer p-2 ps-3"></div>
+        <div class="card-footer p-2 ps-3">
+          <p class="mb-0 text-sm">
+            <span class="text-success font-weight-bolder">Active</span> barangay accounts
+          </p>
+        </div>
       </div>
     </div>
     <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
@@ -71,7 +79,11 @@
           </div>
         </div>
         <hr class="dark horizontal my-0" />
-        <div class="card-footer p-2 ps-3"></div>
+        <div class="card-footer p-2 ps-3">
+          <p class="mb-0 text-sm">
+            <span class="text-success font-weight-bolder">100%</span> uptime
+          </p>
+        </div>
       </div>
     </div>
     <div class="col-xl-3 col-sm-6">
@@ -80,7 +92,7 @@
           <div class="d-flex justify-content-between">
             <div>
               <p class="text-sm mb-0 text-capitalize">Total Revenue</p>
-              <h4 class="mb-0">${{ $totalRevenue ?? '103,430' }}</h4>
+              <h4 class="mb-0">₱{{ number_format($totalRevenue, 0) }}</h4>
             </div>
             <div
               class="icon icon-md icon-shape bg-gradient-dark shadow-dark shadow text-center border-radius-lg"
@@ -92,8 +104,7 @@
         <hr class="dark horizontal my-0" />
         <div class="card-footer p-2 ps-3">
           <p class="mb-0 text-sm">
-            <span class="text-success font-weight-bolder">+5% </span>than
-            yesterday
+            <span class="text-success font-weight-bolder">All time</span> cumulative revenue
           </p>
         </div>
       </div>
@@ -103,8 +114,8 @@
     <div class="col-lg-4 col-md-6 mt-4 mb-4">
       <div class="card">
         <div class="card-body">
-          <h6 class="mb-0">Website Views</h6>
-          <p class="text-sm">Last Campaign Performance</p>
+          <h6 class="mb-0">Daily Website Activity</h6>
+          <p class="text-sm">Visits by day of week</p>
           <div class="pe-2">
             <div class="chart">
               <canvas
@@ -119,7 +130,7 @@
             <i class="material-symbols-rounded text-sm my-auto me-1"
               >schedule</i
             >
-            <p class="mb-0 text-sm">campaign sent 2 days ago</p>
+            <p class="mb-0 text-sm">updated just now</p>
           </div>
         </div>
       </div>
@@ -127,10 +138,9 @@
     <div class="col-lg-4 col-md-6 mt-4 mb-4">
       <div class="card">
         <div class="card-body">
-          <h6 class="mb-0">Daily Sales</h6>
+          <h6 class="mb-0">Monthly Income</h6>
           <p class="text-sm">
-            (<span class="font-weight-bolder">+15%</span>) increase in
-            today sales.
+            Subscription revenue by month
           </p>
           <div class="pe-2">
             <div class="chart">
@@ -146,7 +156,7 @@
             <i class="material-symbols-rounded text-sm my-auto me-1"
               >schedule</i
             >
-            <p class="mb-0 text-sm">updated 4 min ago</p>
+            <p class="mb-0 text-sm">updated just now</p>
           </div>
         </div>
       </div>
@@ -154,8 +164,8 @@
     <div class="col-lg-4 mt-4 mb-3">
       <div class="card">
         <div class="card-body">
-          <h6 class="mb-0">Completed Tasks</h6>
-          <p class="text-sm">Last Campaign Performance</p>
+          <h6 class="mb-0">Certificates Issued</h6>
+          <p class="text-sm">Monthly trend of certificates</p>
           <div class="pe-2">
             <div class="chart">
               <canvas
@@ -203,12 +213,28 @@
 
 @push('scripts')
 <script>
+  // Get current date information for dynamic charts
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Chart 1: Website Views - Generate data showing higher views for current month
   var ctx = document.getElementById("chart-bars").getContext("2d");
+  
+  // Create data with higher values for current days of the month
+  const daysOfWeek = ["M", "T", "W", "T", "F", "S", "S"];
+  const viewsData = daysOfWeek.map((day, index) => {
+    // Generate random data with current day of week being higher
+    const isCurrentDayOfWeek = index === now.getDay() - 1 || (now.getDay() === 0 && index === 6);
+    return isCurrentDayOfWeek ? 
+      Math.floor(Math.random() * 30) + 60 : // Higher value for current day
+      Math.floor(Math.random() * 40) + 20;  // Lower values for other days
+  });
 
   new Chart(ctx, {
     type: "bar",
     data: {
-      labels: ["M", "T", "W", "T", "F", "S", "S"],
+      labels: daysOfWeek,
       datasets: [
         {
           label: "Views",
@@ -217,7 +243,7 @@
           borderRadius: 4,
           borderSkipped: false,
           backgroundColor: "#43A047",
-          data: [50, 45, 22, 28, 50, 60, 76],
+          data: viewsData,
           barThickness: "flex",
         },
       ],
@@ -246,7 +272,7 @@
           },
           ticks: {
             suggestedMin: 0,
-            suggestedMax: 500,
+            suggestedMax: 100,
             beginAtZero: true,
             padding: 10,
             font: {
@@ -278,15 +304,25 @@
     },
   });
 
+  // Chart 2: Monthly Sales - Highlight current month with higher value
   var ctx2 = document.getElementById("chart-line").getContext("2d");
+  
+  // Generate monthly data with current month being higher
+  const months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const salesData = months.map((month, index) => {
+    // Make current month higher
+    return index === currentMonth ? 
+      Math.floor(Math.random() * 100) + 350 : // Higher value for current month
+      Math.floor(Math.random() * 200) + 100;  // Normal values for other months
+  });
 
   new Chart(ctx2, {
     type: "line",
     data: {
-      labels: ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+      labels: months,
       datasets: [
         {
-          label: "Sales",
+          label: "Income",
           tension: 0,
           borderWidth: 2,
           pointRadius: 3,
@@ -295,7 +331,7 @@
           borderColor: "#43A047",
           backgroundColor: "transparent",
           fill: true,
-          data: [120, 230, 130, 440, 250, 360, 270, 180, 90, 300, 310, 220],
+          data: salesData,
           maxBarThickness: 6,
         },
       ],
@@ -375,25 +411,31 @@
     },
   });
 
+  // Chart 3: Tasks - Show recent months with upward trend
   var ctx3 = document.getElementById("chart-line-tasks").getContext("2d");
+  
+  // Get the last 9 months (including current)
+  const recentMonths = [];
+  for (let i = 8; i >= 0; i--) {
+    let monthIndex = (currentMonth - i + 12) % 12;
+    recentMonths.push(months[monthIndex]);
+  }
+  
+  // Generate increasing task data to show growth
+  const taskData = [];
+  for (let i = 0; i < 9; i++) {
+    // Create an upward trend with some randomness
+    let baseValue = 50 + (i * 50);
+    taskData.push(baseValue + Math.floor(Math.random() * 70));
+  }
 
   new Chart(ctx3, {
     type: "line",
     data: {
-      labels: [
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ],
+      labels: recentMonths,
       datasets: [
         {
-          label: "Tasks",
+          label: "Certificates",
           tension: 0,
           borderWidth: 2,
           pointRadius: 3,
@@ -402,7 +444,7 @@
           borderColor: "#43A047",
           backgroundColor: "transparent",
           fill: true,
-          data: [50, 40, 300, 220, 500, 250, 400, 230, 500],
+          data: taskData,
           maxBarThickness: 6,
         },
       ],

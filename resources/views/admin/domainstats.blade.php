@@ -55,25 +55,25 @@
                         class="d-flex flex-column justify-content-center"
                       >
                         <h6 class="mb-0 text-sm">
-                          {{ $domain->domain }}.{{ config('tenancy.central_domains')[0] }}
+                          {{ $domain['domain'] }}.{{ config('tenancy.central_domains')[0] }}
                         </h6>
                       </div>
                     </div>
                   </td>
                   <td>
                     <p class="text-xs font-weight-bold mb-0">
-                      {{ $domain->subscription_plan }}
+                      {{ $domain['subscription_plan'] }}
                     </p>
                     <p class="text-xs text-secondary mb-0">
-                      {{ $domain->tenant_name }}
+                      {{ $domain['tenant_name'] }}
                     </p>
                   </td>
                   <td class="align-middle text-center text-sm">
-                    @if($domain->is_active)
+                    @if($domain['is_active'])
                     <span class="badge badge-sm bg-gradient-success">Up and Running</span>
-                    @elseif($domain->status == 'disabled')
+                    @elseif($domain['status'] == 'disabled')
                     <span class="badge badge-sm bg-gradient-primary">Domain Disabled</span>
-                    @elseif($domain->status == 'unreachable')
+                    @elseif($domain['status'] == 'unreachable')
                     <span class="badge badge-sm bg-gradient-danger">Domain Unreachable</span>
                     @else
                     <span class="badge badge-sm bg-gradient-secondary">Not yet Activated</span>
@@ -81,7 +81,7 @@
                   </td>
                   <td class="align-middle text-center">
                     <span class="text-secondary text-xs font-weight-bold">
-                      {{ $domain->valid_until ? date('M d, Y', strtotime($domain->valid_until)) : '----' }}
+                      {{ $domain['valid_until'] ? date('M d, Y', strtotime($domain['valid_until'])) : '----' }}
                     </span>
                   </td>
                 </tr>

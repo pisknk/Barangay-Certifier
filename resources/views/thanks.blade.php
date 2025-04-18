@@ -68,7 +68,7 @@
                       if your website is ready to go!
                     </p>
                     <a
-                      href="/"
+                      href="/landing"
                       class="btn bg-gradient-dark w-100 my-4 mb-2"
                     >
                       Return to Landing Page

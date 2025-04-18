@@ -32,12 +32,8 @@ Route::post('/login', [AdminAuthController::class, 'login']);
 Route::get('/console', function () {
     // Check if user is logged in
     if (Auth::check()) {
-        // Hard-coded data for now
-        return view('admin.admindash', [
-            'activeTenants' => 5,
-            'totalIncome' => 2000,
-            'totalRevenue' => 5000
-        ]);
+        // Use the AdminController's dashboard method
+        return app()->call([app(AdminController::class), 'dashboard']);
     } else {
         // Redirect to login if not authenticated
         return redirect()->route('admin.login');
@@ -115,4 +111,9 @@ Route::get('/fallback-dashboard', function () {
 // Test route
 Route::get('/test', function () {
     return 'Admin Panel subdomain test is working at: ' . request()->getHttpHost();
-}); 
+});
+
+// Debug tenant status information - intentionally not behind auth for easier debugging
+Route::get('/tenant-debug', function () {
+    return app()->call([app(AdminController::class), 'tenantDebug']);
+})->name('admin.tenant-debug'); 

@@ -62,6 +62,23 @@ class TenantController extends Controller
         DB::beginTransaction();
         
         try {
+            // Create a slugified version of the barangay name
+            $barangaySlug = Str::slug($request->barangay);
+            $tenantId = $barangaySlug;
+            
+            // Check if the tenant already exists before validation
+            if (Tenant::where('id', $tenantId)->exists()) {
+                DB::rollBack();
+                Log::warning("Duplicate barangay registration attempt: {$request->barangay}");
+                
+                if ($request->expectsJson()) {
+                    return response()->json(['error' => 'This barangay name is already taken'], 422);
+                }
+                
+                // Use with() to flash the error to the session
+                return redirect()->back()->with('error', 'This barangay name is already taken.');
+            }
+            
             $request->validate([
                 'name' => 'required|string|max:255',
                 'barangay' => 'required|string|max:255',
@@ -70,21 +87,9 @@ class TenantController extends Controller
             ]);
 
             $password = Str::random(10);
-            $barangaySlug = Str::slug($request->barangay);
-            
-            // Tenant ID should be just the slug without domain or port
-            $tenantId = $barangaySlug;
             
             // Domain should include the full domain with port
             $domain = $barangaySlug . '.localhost:8000';
-
-            // Check if the tenant already exists
-            if (Tenant::where('id', $tenantId)->exists()) {
-                if ($request->expectsJson()) {
-                return response()->json(['error' => 'This barangay name is already taken'], 422);
-                }
-                return redirect()->back()->with('error', 'This barangay name is already taken.');
-            }
 
             // Insert directly into database to bypass model events initially
             DB::table('tenants')->insert([

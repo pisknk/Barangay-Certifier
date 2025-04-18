@@ -28,32 +28,70 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
-        // For now, using hardcoded values that we know work
-        // Later, when database issues are resolved, we can uncomment the code below
+        // First, log all tenant statuses to debug the issue
+        $allTenantsForDebug = Tenant::select('id', 'name', 'is_active', 'subscription_plan')->get();
+        foreach ($allTenantsForDebug as $tenant) {
+            Log::info("Tenant {$tenant->id} ({$tenant->name}) has is_active status: {$tenant->is_active} and plan: {$tenant->subscription_plan}");
+        }
         
-        /* 
-        // Get counts and statistics for the dashboard
-        $activeTenants = Tenant::where('is_active', true)->count();
+        // Get counts of tenants with is_active EXACTLY equal to 1 (ACTIVE/SUBSCRIBED)
+        // Try both integer and string comparison to catch potential type issues
+        $activeTenantsCount = DB::table('tenants')
+            ->where(function($query) {
+                $query->where('is_active', '=', 1)
+                      ->orWhere('is_active', '=', '1');
+            })
+            ->count();
         
-        // Calculate total income based on subscription plans
+        Log::info("Active tenants count (is_active=1 or '1'): {$activeTenantsCount}");
+        
+        // Calculate total income based on subscription plans of active tenants
         $totalIncome = 0;
-        $tenants = Tenant::all();
+        $totalRevenue = 0;
         
-        foreach ($tenants as $tenant) {
+        // For better performance, fetch only active tenants for income calculation
+        // Using a subquery to ensure we get all active tenants regardless of type
+        $activeTenantsData = DB::table('tenants')
+            ->where(function($query) {
+                $query->where('is_active', '=', 1)
+                      ->orWhere('is_active', '=', '1');
+            })
+            ->get();
+        
+        $allTenants = DB::table('tenants')->get();
+        
+        // Calculate income from active tenants only (is_active = 1)
+        foreach ($activeTenantsData as $tenant) {
             if (strpos($tenant->subscription_plan, 'Basic') !== false) {
                 $totalIncome += 399;
+                Log::info("Adding 399 to income for active tenant {$tenant->id} with Basic plan");
             } elseif (strpos($tenant->subscription_plan, 'Essentials') !== false) {
                 $totalIncome += 799;
+                Log::info("Adding 799 to income for active tenant {$tenant->id} with Essentials plan");
             } elseif (strpos($tenant->subscription_plan, 'Ultimate') !== false) {
                 $totalIncome += 1299;
+                Log::info("Adding 1299 to income for active tenant {$tenant->id} with Ultimate plan");
             }
         }
-        */
+        
+        // Calculate total revenue from all tenants regardless of status
+        foreach ($allTenants as $tenant) {
+            if (strpos($tenant->subscription_plan, 'Basic') !== false) {
+                $totalRevenue += 399;
+            } elseif (strpos($tenant->subscription_plan, 'Essentials') !== false) {
+                $totalRevenue += 799;
+            } elseif (strpos($tenant->subscription_plan, 'Ultimate') !== false) {
+                $totalRevenue += 1299;
+            }
+        }
+        
+        // Log final calculations for debugging
+        Log::info("Dashboard stats: Active tenants: {$activeTenantsCount}, Current income: {$totalIncome}, Total revenue: {$totalRevenue}");
         
         return view('admin.admindash', [
-            'activeTenants' => 5,
-            'totalIncome' => 2000,
-            'totalRevenue' => 5000
+            'activeTenants' => $activeTenantsCount,
+            'totalIncome' => $totalIncome,
+            'totalRevenue' => $totalRevenue
         ]);
     }
 
@@ -268,14 +306,111 @@ class AdminController extends Controller
      */
     public function debug()
     {
-        // Get counts and statistics for the dashboard
-        $activeTenants = Tenant::where('is_active', true)->count();
+        // Get counts of tenants with is_active EXACTLY equal to 1 (ACTIVE/SUBSCRIBED)
+        // Try both integer and string comparison to catch potential type issues
+        $activeTenantsCount = DB::table('tenants')
+            ->where(function($query) {
+                $query->where('is_active', '=', 1)
+                      ->orWhere('is_active', '=', '1');
+            })
+            ->count();
+        
+        // Calculate income and revenue using the same logic as the dashboard method
+        $totalIncome = 0;
+        $totalRevenue = 0;
+        
+        // Fetch only active tenants for income calculation
+        $activeTenantsData = DB::table('tenants')
+            ->where(function($query) {
+                $query->where('is_active', '=', 1)
+                      ->orWhere('is_active', '=', '1');
+            })
+            ->get();
+            
+        $allTenants = DB::table('tenants')->get();
+        
+        // Calculate income from active tenants only
+        foreach ($activeTenantsData as $tenant) {
+            if (strpos($tenant->subscription_plan, 'Basic') !== false) {
+                $totalIncome += 399;
+            } elseif (strpos($tenant->subscription_plan, 'Essentials') !== false) {
+                $totalIncome += 799;
+            } elseif (strpos($tenant->subscription_plan, 'Ultimate') !== false) {
+                $totalIncome += 1299;
+            }
+        }
+        
+        // Calculate total revenue from all tenants
+        foreach ($allTenants as $tenant) {
+            if (strpos($tenant->subscription_plan, 'Basic') !== false) {
+                $totalRevenue += 399;
+            } elseif (strpos($tenant->subscription_plan, 'Essentials') !== false) {
+                $totalRevenue += 799;
+            } elseif (strpos($tenant->subscription_plan, 'Ultimate') !== false) {
+                $totalRevenue += 1299;
+            }
+        }
+        
+        // Log for debugging
+        Log::info("DEBUG mode - Dashboard stats: Active tenants: {$activeTenantsCount}, Current income: {$totalIncome}, Total revenue: {$totalRevenue}");
         
         // Return simple view to verify that the controller works
         return view('admin.admindash', [
-            'activeTenants' => $activeTenants,
-            'totalIncome' => 0,
+            'activeTenants' => $activeTenantsCount,
+            'totalIncome' => $totalIncome,
+            'totalRevenue' => $totalRevenue,
             'debug' => true
+        ]);
+    }
+
+    /**
+     * Debug tenant status information in JSON format
+     * 
+     * @return \Illuminate\Http\Response
+     */
+    public function tenantDebug()
+    {
+        // Query all tenants with their status information
+        $tenants = Tenant::select('id', 'name', 'barangay', 'subscription_plan', 'is_active', 'valid_until')->get();
+        
+        $formattedTenants = $tenants->map(function($tenant) {
+            // Get status text based on is_active value
+            $statusText = '';
+            if ($tenant->is_active === 0 || $tenant->is_active === '0') {
+                $statusText = 'NOT ACTIVE';
+            } elseif ($tenant->is_active === 1 || $tenant->is_active === '1') {
+                $statusText = 'SUBSCRIBED';
+            } elseif ($tenant->is_active === 2 || $tenant->is_active === '2') {
+                $statusText = 'DISABLED BY ADMIN';
+            } elseif ($tenant->is_active === 3 || $tenant->is_active === '3') {
+                $statusText = 'EXPIRED SUBSCRIPTION';
+            } else {
+                $statusText = 'UNKNOWN STATUS: ' . $tenant->is_active;
+            }
+            
+            // Format for display
+            return [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'barangay' => $tenant->barangay,
+                'plan' => $tenant->subscription_plan,
+                'is_active_raw' => $tenant->is_active,
+                'is_active_type' => gettype($tenant->is_active),
+                'is_active_equals_1' => $tenant->is_active == 1,
+                'is_active_strict_equals_1' => $tenant->is_active === 1,
+                'status_text' => $statusText,
+                'valid_until' => $tenant->valid_until ? $tenant->valid_until->format('Y-m-d') : null
+            ];
+        });
+        
+        return response()->json([
+            'tenants' => $formattedTenants,
+            'counts' => [
+                'total' => $tenants->count(),
+                'active_loose' => $tenants->where('is_active', 1)->count(),
+                'active_strict' => $tenants->filter(function($t) { return $t->is_active === 1; })->count(),
+                'db_query_count' => DB::table('tenants')->where('is_active', '=', 1)->count()
+            ]
         ]);
     }
 } 

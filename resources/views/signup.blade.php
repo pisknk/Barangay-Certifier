@@ -38,6 +38,20 @@
 
   <body class="bg-gray-200">
     <main class="main-content mt-0">
+      <!-- Toast Notification -->
+      <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="toast-header bg-danger text-white">
+            <strong class="me-auto">Error</strong>
+            <small>just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+          <div class="toast-body" id="toastMessage">
+            {{ session('error') }}
+          </div>
+        </div>
+      </div>
+      
       <div
         class="page-header align-items-start min-vh-100"
         style="
@@ -68,12 +82,6 @@
                   </div>
                 </div>
                 <div class="card-body">
-                  @if(session('error'))
-                    <div class="alert alert-danger text-white">
-                      {{ session('error') }}
-                    </div>
-                  @endif
-                  
                   <div class="row">
                     <!-- Left side: Form inputs -->
                     <div class="col-md-6">
@@ -263,21 +271,64 @@
         });
       });
       
-      // Form submission
-      document.getElementById('signupForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Validate form
-        if (!document.getElementById('terms').checked) {
-          alert('Please agree to the Terms and Conditions');
-          return;
-        }
-        
-        // Submit the form
-        this.submit();
-      });
+      // Form submission handled in the DOM content loaded event below
     </script>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
     <script src="{{ asset('assets/js/material-dashboard.min.js?v=3.2.0') }}"></script>
+    
+    <!-- Toast notification initialization -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, checking for error messages');
+        
+        // Check if there's an error in the session
+        @if(session('error'))
+          console.log('Error found in session: {{ session('error') }}');
+          // Get the toast element
+          const toastElement = document.getElementById('errorToast');
+          console.log('Toast element found:', toastElement);
+          
+          // Initialize the toast
+          try {
+            const toast = new bootstrap.Toast(toastElement, {
+              autohide: true,
+              delay: 5000
+            });
+            console.log('Toast initialized successfully');
+            
+            // Show the toast
+            toast.show();
+            console.log('Toast shown');
+          } catch (error) {
+            console.error('Error initializing toast:', error);
+          }
+        @else
+          console.log('No error in session');
+        @endif
+        
+        // Form validation
+        const form = document.getElementById('signupForm');
+        form.addEventListener('submit', function(event) {
+          const termsCheckbox = document.getElementById('terms');
+          if (!termsCheckbox.checked) {
+            event.preventDefault();
+            console.log('Form submission prevented: Terms not accepted');
+            
+            // Show toast for terms error
+            document.getElementById('toastMessage').textContent = 'Please agree to the Terms and Conditions';
+            try {
+              const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+              toast.show();
+              console.log('Terms error toast shown');
+            } catch (error) {
+              console.error('Error showing terms toast:', error);
+              alert('Please agree to the Terms and Conditions');
+            }
+          } else {
+            console.log('Form submission accepted: All validations passed');
+          }
+        });
+      });
+    </script>
   </body>
 </html>
