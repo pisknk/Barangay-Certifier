@@ -39,6 +39,8 @@ class RouteServiceProvider extends ServiceProvider
                 ->domain('onboarding.localhost')
                 ->group(base_path('routes/onboarding.php'));
 
+            // Admin subdomain - using only web middleware
+            // IMPORTANT: Keeping this simple by only using 'web' middleware
             Route::middleware('web')
                 ->domain('admin-panel.localhost')
                 ->group(base_path('routes/admin.php'));

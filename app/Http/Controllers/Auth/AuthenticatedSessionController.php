@@ -8,14 +8,17 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use App\Providers\RouteServiceProvider;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
      * Display the login view.
      */
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        // No need to redirect since our RouteServiceProvider already redirects
+        // login requests on admin-panel to the admin.login route
         return view('auth.login');
     }
 
@@ -28,7 +31,12 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Check if request is from admin panel subdomain
+        if (str_contains($request->getHost(), 'admin-panel')) {
+            return redirect()->intended(route('admin.dashboard'));
+        }
+
+        return redirect()->intended(RouteServiceProvider::HOME);
     }
 
     /**
@@ -41,6 +49,11 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
+
+        // If on admin panel subdomain, redirect to admin login
+        if (str_contains($request->getHost(), 'admin-panel')) {
+            return redirect()->route('admin.login');
+        }
 
         return redirect('/');
     }
