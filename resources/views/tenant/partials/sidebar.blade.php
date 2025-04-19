@@ -10,7 +10,7 @@
     ></i>
     <a
       class="navbar-brand px-4 py-3 m-0"
-      href="{{ route('admin.console') }}"
+      href="{{ route('tenant.dashboard') }}"
     >
       <img
         src="https://em-content.zobj.net/source/telegram/386/classical-building_1f3db-fe0f.webp"
@@ -27,30 +27,36 @@
     <ul class="navbar-nav">
       <li class="nav-item">
         <a
-          class="nav-link {{ request()->routeIs('admin.console') ? 'active bg-gradient-dark text-white' : 'text-dark' }}"
-          href="{{ route('admin.console') }}"
+          class="nav-link {{ request()->routeIs('tenant.dashboard') ? 'active bg-gradient-dark text-white' : 'text-dark' }}"
+          href="{{ route('tenant.dashboard') }}"
         >
           <i class="material-symbols-rounded opacity-5">dashboard</i>
           <span class="nav-link-text ms-1">Dashboard</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link {{ request()->routeIs('admin.tenants') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('admin.tenants') }}">
-          <i class="material-symbols-rounded opacity-5">table_view</i>
-          <span class="nav-link-text ms-1">Tenants</span>
+        <a class="nav-link {{ request()->routeIs('tenant.users.*') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('tenant.users.index') }}">
+          <i class="material-symbols-rounded opacity-5">group</i>
+          <span class="nav-link-text ms-1">Users</span>
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link {{ request()->routeIs('admin.domains') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('admin.domains') }}">
+        <a class="nav-link {{ request()->routeIs('tenant.certificates.*') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="#">
           <i class="material-symbols-rounded opacity-5">receipt_long</i>
-          <span class="nav-link-text ms-1">Domain Status</span>
+          <span class="nav-link-text ms-1">Certificates</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {{ request()->routeIs('tenant.settings.*') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="#">
+          <i class="material-symbols-rounded opacity-5">settings</i>
+          <span class="nav-link-text ms-1">Settings</span>
         </a>
       </li>
     </ul>
   </div>
   <div class="sidenav-footer position-absolute w-100 bottom-0">
     <div class="mx-3">
-      <form method="POST" action="{{ route('admin.logout') }}">
+      <form method="POST" action="{{ route('tenant.logout') }}">
         @csrf
         <button type="submit" class="btn bg-gradient-dark w-100">Log out</button>
       </form>

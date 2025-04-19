@@ -30,7 +30,13 @@
               </div>
             </div>
             <div class="card-body">
-              <form role="form" class="text-start" method="POST" action="{{ route('admin.login') }}">
+              @if(session('error'))
+                <div class="alert alert-danger text-white text-sm">
+                  {{ session('error') }}
+                </div>
+              @endif
+              
+              <form role="form" class="text-start" method="POST" action="{{ route('tenant.login.submit') }}">
                 @csrf
                 <div class="input-group input-group-outline my-3">
                   <label class="form-label">Email</label>
@@ -70,18 +76,16 @@
                     Sign in
                   </button>
                 </div>
-                <a
-                        href="#"
-                        class="text-primary text-gradient font-weight-bold"
-                        >Forgot your Password</a
-                      >
-                      or
-                      <a
-                        href="#"
-                        class="text-primary text-secondary font-weight-bold"
-                        >Sign up</a
-                      >
-                    </p>
+                
+                <p class="mt-3 text-sm text-center text-info">
+                  <i>Use the temporary password provided in your approval email for your first login.</i>
+                </p>
+                
+                <p class="mt-3 text-sm text-center">
+                  <a href="/admin/password-reset" class="text-dark font-weight-bolder">
+                    Forgot password or having trouble signing in?
+                  </a>
+                </p>
               </form>
             </div>
           </div>
@@ -112,5 +116,38 @@
       </div>
     </footer>
   </div>
+  
+  <!-- Support Contact Modal -->
+  <div class="modal fade" id="supportModal" tabindex="-1" role="dialog" aria-labelledby="supportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="supportModalLabel">Contact Support</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>If you're having trouble logging in, please contact your system administrator or support team with the following information:</p>
+          <ul>
+            <li><strong>Barangay:</strong> {{$tenant->barangay}}</li>
+            <li><strong>Email:</strong> {{$tenant->email}}</li>
+            <li><strong>Domain:</strong> {{request()->getHttpHost()}}</li>
+          </ul>
+          <p>The support team will help reset your password and regain access to your account.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn bg-gradient-dark" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
+
+<script>
+  function forgotPassword() {
+    var supportModal = new bootstrap.Modal(document.getElementById('supportModal'));
+    supportModal.show();
+  }
+</script>
 @endsection

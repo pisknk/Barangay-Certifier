@@ -103,46 +103,35 @@ class CreateTenantAdminUser extends Command
             if ($existingAdmin) {
                 $this->info("Admin user already exists for tenant {$tenantId} with email {$tenant->email}");
                 
-                // Update role to ensure it's admin
+                // Make sure user has admin role
                 DB::connection('tenant')
                     ->table('tenant_users')
                     ->where('email', $tenant->email)
-                    ->update(['role' => 'admin']);
+                    ->update([
+                        'role' => 'admin'
+                    ]);
                     
                 $this->info("Ensured user has admin role");
                 tenancy()->end();
                 return;
             }
             
-            // Create admin user
+            // Create admin user with a temporary password placeholder
+            // This will be updated when the user completes the setup process
             $now = now();
-            
-            // Ensure we have a valid password
-            $password = $tenant->password;
-            if (empty($password)) {
-                // Generate a random password if none exists
-                $tempPassword = Str::random(10);
-                $password = Hash::make($tempPassword);
-                
-                // Update the tenant record with this password
-                $tenant->password = $password;
-                $tenant->save();
-                
-                $this->info("Generated new password for tenant {$tenantId} admin: {$tempPassword}");
-                Log::info("Generated new password for tenant {$tenantId} admin (see logs for value)");
-            }
+            $tempPasswordPlaceholder = Hash::make(Str::random(64)); // Very long random password that can't be guessed
             
             DB::connection('tenant')->table('tenant_users')->insert([
                 'name' => $tenant->name,
                 'email' => $tenant->email,
-                'password' => $password,
+                'password' => $tempPasswordPlaceholder, // This will be replaced when user completes setup
                 'role' => 'admin',
-                'position' => 'Barangay Administrator',
                 'created_at' => $now,
                 'updated_at' => $now
             ]);
             
             $this->info("Created admin user for tenant {$tenantId} with email {$tenant->email}");
+            $this->info("User will set their password via setup link");
             
             // End tenancy
             tenancy()->end();
@@ -169,5 +158,16 @@ class CreateTenantAdminUser extends Command
     protected function checkIfTableExists($tableName)
     {
         return DB::connection('tenant')->getSchemaBuilder()->hasTable($tableName);
+    }
+    
+    /**
+     * Check if a string looks like a bcrypt hash.
+     */
+    protected function looksLikeHash($string)
+    {
+        // Simple check if it starts with $2y$ (bcrypt hash)
+        return is_string($string) && 
+               strlen($string) > 20 && 
+               substr($string, 0, 4) === '$2y$';
     }
 }

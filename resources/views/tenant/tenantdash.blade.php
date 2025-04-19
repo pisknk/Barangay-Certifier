@@ -1,15 +1,22 @@
-@extends('layouts.admin')
+@extends('layouts.tenant')
 
 @section('title', 'Dashboard')
 
 @section('content')
 <div class="container-fluid py-2">
   <div class="row">
-    <div class="ms-3">
-      <h3 class="mb-0 h4 font-weight-bolder">Dashboard</h3>
-      <p class="mb-4">
-        Quick glance at Active Members, Income, and More!
-      </p>
+    <div class="ms-3 d-flex justify-content-between align-items-center">
+      <div>
+        <h3 class="mb-0 h4 font-weight-bolder">Dashboard</h3>
+        <p class="mb-4">
+          Quick glance at Active Members, Income, and More!
+        </p>
+      </div>
+      <div>
+        <a href="{{ route('tenant.users.index') }}" class="btn btn-dark mb-0">
+          <i class="material-symbols-rounded">group</i> Manage Users
+        </a>
+      </div>
     </div>
     <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
       <div class="card">

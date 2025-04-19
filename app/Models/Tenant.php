@@ -17,7 +17,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     // Define our custom database column names
     protected $fillable = [
-        'id', 'name', 'barangay', 'email', 'subscription_plan', 'password', 'is_active', 'tenant_db', 'valid_until'
+        'id', 'name', 'barangay', 'email', 'subscription_plan', 'password', 'password_changed', 'is_active', 'tenant_db', 'valid_until', 'setup_token'
     ];
 
     // Properties that should be included in JSON data
@@ -30,7 +30,9 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'subscription_plan',
             'is_active',
             'tenant_db',
-            'valid_until'
+            'valid_until',
+            'setup_token',
+            'password_changed'
         ];
     }
 
@@ -39,6 +41,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         'data' => 'array',
         'is_active' => 'integer',
         'valid_until' => 'datetime',
+        'password_changed' => 'boolean',
     ];
 
     protected $hidden = ['password'];

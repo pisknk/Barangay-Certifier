@@ -85,8 +85,6 @@ class TenantController extends Controller
                 'email' => 'required|email|unique:tenants,email',
                 'subscription_plan' => 'required|in:Basic,Essentials,Ultimate',
             ]);
-
-            $password = Str::random(10);
             
             // Domain should include the full domain with port
             $domain = $barangaySlug . '.localhost:8000';
@@ -98,7 +96,8 @@ class TenantController extends Controller
                 'barangay' => $request->barangay,
                 'email' => $request->email,
                 'subscription_plan' => $request->subscription_plan,
-                'password' => Hash::make($password),
+                'password' => null, // No password set initially - will be set during setup process
+                'password_changed' => false, // Not changed yet
                 'is_active' => false,
                 'data' => '{}',
                 'created_at' => now(),
@@ -208,9 +207,20 @@ class TenantController extends Controller
             // Store current status before changing
             $previousStatus = $tenant->is_active;
             
-            // Generate a temporary password for the tenant
-            $tempPassword = Str::random(8);
-            $tenant->password = Hash::make($tempPassword);
+            // Generate a setup token instead of a random password
+            $setupToken = Str::random(64);
+            
+            // Store the setup token
+            $tenant->setup_token = $setupToken;
+            $tenant->password_changed = false; // Explicitly set to false
+            
+            // Save the token to the tenant record in database
+            DB::table('tenants')
+                ->where('id', $tenant->id)
+                ->update([
+                    'setup_token' => $setupToken,
+                    'password_changed' => false
+                ]);
             
             // Check if this was an expired subscription or inactive (new) tenant
             $wasExpired = $tenant->is_active == \App\Models\Tenant::EXPIRED;
@@ -303,7 +313,8 @@ class TenantController extends Controller
                 
                 Log::info("Global migration output for tenant {$tenant->id}: " . \Artisan::output());
                 
-                // Create admin user in tenant database
+                // Create admin user in tenant database without setting a password yet
+                // The password will be set by the user through the setup link
                 \Artisan::call('tenant:create-admin', [
                     'tenant_id' => $tenant->id
                 ]);
@@ -313,12 +324,16 @@ class TenantController extends Controller
                 // End the tenant context
                 tenancy()->end();
                 
-                // Send approval email with temporary password
+                // Send approval email with setup link
                 try {
-                    Mail::to($tenant->email)->send(new ApprovedMail($tenant, $tempPassword, $domainUrl));
-                    Log::info('Approval email sent to: ' . $tenant->email . ' with temporary password and domain: ' . $domainUrl);
+                    Log::info('Attempting to send approval email to: ' . $tenant->email . ' with domain: ' . $domainUrl);
+                    Mail::to($tenant->email)->send(new ApprovedMail($tenant, null, $domainUrl, $setupToken));
+                    Log::info('Approval email sent successfully to: ' . $tenant->email);
                 } catch (\Exception $emailEx) {
-                    Log::error('Error sending approval email: ' . $emailEx->getMessage());
+                    Log::error('Error sending approval email: ' . $emailEx->getMessage(), [
+                        'exception' => $emailEx,
+                        'trace' => $emailEx->getTraceAsString()
+                    ]);
                     // We'll log the error but continue with activation
                 }
                 
@@ -326,10 +341,29 @@ class TenantController extends Controller
                     'message' => 'Tenant activated successfully and database created.',
                     'domain' => $domainUrl,
                     'valid_until' => $tenant->valid_until,
-                    'temp_password' => $tempPassword // Include this for testing purposes only, remove in production
+                    'setup_token' => $setupToken // Include for testing purposes only, remove in production
                 ]);
             } catch (\Exception $innerEx) {
-                Log::error('Error during tenant database setup or email: ' . $innerEx->getMessage());
+                // If we're still in tenant context, end it
+                if (tenancy()->initialized) {
+                    tenancy()->end();
+                }
+                
+                Log::error('Error during tenant database setup: ' . $innerEx->getMessage(), [
+                    'exception' => $innerEx,
+                    'trace' => $innerEx->getTraceAsString()
+                ]);
+                
+                // Even if there's an error with the database setup, we'll still try to send the email
+                try {
+                    if (isset($domain) && $domain) {
+                        $domainUrl = 'http://' . $domain->domain;
+                        Mail::to($tenant->email)->send(new ApprovedMail($tenant, null, $domainUrl, $setupToken));
+                        Log::info('Approval email sent after database error to: ' . $tenant->email);
+                    }
+                } catch (\Exception $emailEx) {
+                    Log::error('Error sending approval email after database error: ' . $emailEx->getMessage());
+                }
                 
                 // Even if there's an error with the database or email, we keep the tenant active
                 return response()->json([

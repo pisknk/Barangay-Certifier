@@ -61,9 +61,16 @@
         </div>
         
         <div class="credentials">
-            <p><strong>Your Temporary Login Details:</strong></p>
+            <p><strong>Your Login Details:</strong></p>
             <p>Email: {{ $tenant->email }}</p>
-            <p>Temporary Password: {{ isset($tenant->temp_password) ? $tenant->temp_password : 'Contact support if you did not receive a temporary password' }}</p>
+            <div style="text-align: center; margin: 20px 0;">
+                @if(isset($setup_token) && $setup_token)
+                <a href="{{ url('/setup-password/' . $tenant->id . '/' . $setup_token) }}" class="button">Finish Setting Up Your Domain</a>
+                @else
+                <p><strong>Error: Setup token is missing. Please contact support.</strong></p>
+                @endif
+            </div>
+            <p>Click the button above to create your password and complete your account setup.</p>
         </div>
         
         <p>For security reasons, please change your password immediately after your first login by visiting your account settings.</p>
