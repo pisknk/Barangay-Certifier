@@ -77,15 +77,12 @@
                   </button>
                 </div>
                 
-                <p class="mt-3 text-sm text-center text-info">
-                  <i>Use the temporary password provided in your approval email for your first login.</i>
-                </p>
-                
                 <p class="mt-3 text-sm text-center">
                   <a href="/admin/password-reset" class="text-dark font-weight-bolder">
                     Forgot password or having trouble signing in?
                   </a>
                 </p>
+                
               </form>
             </div>
           </div>
