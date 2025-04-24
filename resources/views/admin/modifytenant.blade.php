@@ -398,7 +398,6 @@
                           <li>Everything in Essentials</li>
                           <li>Customizable Dashboard Theme</li>
                           <li>Create unlimited user accounts</li>
-                          <li>Page Watermarking</li>
                           <li>Software Updates</li>
                           <li>12 Month Subscription</li>
                         </ul>

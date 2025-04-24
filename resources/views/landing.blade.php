@@ -435,9 +435,6 @@
                       accounts
                     </li>
                     <li class="list-group-item border-0 ps-0">
-                      <span class="text-success me-2">✓</span> Page Watermarking
-                    </li>
-                    <li class="list-group-item border-0 ps-0">
                       <span class="text-success me-2">✓</span> 12 Month
                       Subscription
                     </li>

@@ -96,6 +96,7 @@
           
           <div class="row">
             <div class="col-md-6 mx-auto">
+              @if($user->role !== 'admin')
               <form method="POST" action="{{ route('tenant.users.destroy', $user->id) }}" onsubmit="return confirm('Are you sure you want to delete this user? This cannot be undone.');">
                 @csrf
                 @method('DELETE')
@@ -103,6 +104,11 @@
                   Delete User
                 </button>
               </form>
+              @else
+              <div class="alert alert-info text-white text-center">
+                Admin users cannot be deleted
+              </div>
+              @endif
             </div>
           </div>
         </div>

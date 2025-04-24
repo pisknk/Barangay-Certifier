@@ -3,6 +3,30 @@
 @section('title', 'Login to Barangay {{$tenant->barangay}}') <!-- base the barangay name off the "barangay" field in the "tenants" table -->
 
 @section('content')
+@push('scripts')
+<script>
+    // Apply theme on login page too for consistent experience
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Get saved settings from localStorage - use guest settings on login page
+            const savedSettings = localStorage.getItem('themeSettings_guest');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                // Apply dark mode if enabled
+                if (settings.darkMode) {
+                    document.body.classList.add('dark-version');
+                }
+                
+                console.log('Applied guest theme settings on login page');
+            }
+        } catch (e) {
+            console.error('Error applying theme on login page:', e);
+        }
+    });
+</script>
+@endpush
+
 <main class="main-content mt-0">
   <div
     class="page-header align-items-start min-vh-100"

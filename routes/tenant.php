@@ -11,6 +11,7 @@ use App\Http\Controllers\Tenant\TenantUserViewController;
 use App\Http\Controllers\Tenant\TestController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Controllers\Tenant\TenantSetupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,9 +60,38 @@ Route::get('/assets/{path}', function ($path) {
 // Web Routes
 Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
     
+    // Public routes
+    Route::get('/', function () {
+        return view('tenant.nopay');
+    })->name('tenant.nopay')->middleware(\App\Http\Middleware\EnsureTenantIsActive::class . ':0');
+
+    Route::get('/', function () {
+        return view('tenant.expired');
+    })->name('tenant.expired')->middleware(\App\Http\Middleware\EnsureTenantIsActive::class . ':3');
+
+    Route::get('/', function () {
+        return redirect()->route('tenant.login');
+    })->middleware(\App\Http\Middleware\EnsureTenantIsActive::class . ':1,2')->name('tenant.home');
+    
     // Guest routes
-    Route::get('/', [TenantUserViewController::class, 'showLoginForm'])->name('tenant.login');
-    Route::post('/login', [TenantUserViewController::class, 'login'])->name('tenant.login.submit');
+    Route::middleware([\App\Http\Middleware\EnsureTenantIsActive::class . ':1,2', 'guest:tenant'])->group(function () {
+        Route::get('/login', [TenantUserViewController::class, 'showLoginForm'])->name('tenant.login');
+        Route::post('/login', [TenantUserViewController::class, 'login'])->name('tenant.login.submit');
+        
+        // Password reset routes
+        Route::get('/forgot-password', [TenantUserViewController::class, 'showForgotPasswordForm'])->name('tenant.password.request');
+        Route::post('/forgot-password', [TenantUserViewController::class, 'sendResetLinkEmail'])->name('tenant.password.email');
+        Route::get('/reset-password/{token}', [TenantUserViewController::class, 'showResetPasswordForm'])->name('tenant.password.reset');
+        Route::post('/reset-password', [TenantUserViewController::class, 'resetPassword'])->name('tenant.password.update');
+        
+        // Setup routes
+        Route::get('/setup/{token}', [TenantSetupController::class, 'setupForm'])->name('tenant.setup');
+        Route::post('/setup/{token}', [TenantSetupController::class, 'processSetup'])->name('tenant.setup.process');
+    });
+    
+    // Access to theme settings
+    Route::get('/settings/get-theme', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'getThemeSettings'])
+        ->name('tenant.settings.get-theme');
     
     // Debug route to check user credentials
     Route::get('/debug-check/{email}/{password?}', function ($email, $password = null) {
@@ -107,11 +137,27 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
             
             // Check if there's a tenant with the same email in the central database
             $tenant = tenant();
-            $centralTenant = DB::connection('central')
-                ->table('tenants')
-                ->where('id', $tenant->id)
-                ->first();
-                
+            $centralTenant = null;
+            
+            try {
+                $centralTenant = DB::connection('central')
+                    ->table('tenants')
+                    ->where('id', $tenant->id)
+                    ->first();
+            } catch (\Exception $e) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'User found in tenant database, but central database check failed',
+                    'error' => $e->getMessage(),
+                    'tenant_user_data' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role
+                    ]
+                ];
+            }
+            
             return [
                 'status' => 'success',
                 'tenant_user_data' => [
@@ -168,11 +214,21 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
             // Also update the main tenant record if needed
             if ($tenant && $tenant->email === $email) {
                 // Using central database connection to update the tenant record
-                DB::connection('central')->table('tenants')
-                    ->where('id', $tenant->id)
-                    ->update([
-                        'password' => Hash::make($password)
-                    ]);
+                try {
+                    DB::connection('central')->table('tenants')
+                        ->where('id', $tenant->id)
+                        ->update([
+                            'password' => Hash::make($password)
+                        ]);
+                } catch (\Exception $e) {
+                    // Continue even if central DB update fails
+                    return [
+                        'status' => 'partial_success',
+                        'message' => 'Password updated in tenant database only. Central database update failed.',
+                        'error' => $e->getMessage(),
+                        'hash_starts_with' => substr(Hash::make($password), 0, 10) . '...'
+                    ];
+                }
             }
             
             if ($updated) {
@@ -220,25 +276,46 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
                 ];
             }
             
-            // Check if passwords match between central and tenant databases
-            $result = [
-                'status' => 'success',
-                'tenant_info' => [
+            $centralDbInfo = null;
+            $passwordComparison = null;
+            
+            // Try to access central database info
+            try {
+                // Check if passwords match between central and tenant databases
+                $passwordComparison = [
+                    'hashes_match' => $user->password === $tenant->password,
+                    'tenant_password_looks_like_hash' => (strpos($tenant->password, '$2y$') === 0),
+                    'user_password_looks_like_hash' => (strpos($user->password, '$2y$') === 0)
+                ];
+                
+                $centralDbInfo = [
                     'id' => $tenant->id,
                     'email' => $tenant->email,
                     'password_hash_starts_with' => substr($tenant->password, 0, 10) . '...',
-                ],
+                ];
+            } catch (\Exception $e) {
+                return [
+                    'status' => 'partial_info',
+                    'message' => 'Could not access central database info: ' . $e->getMessage(),
+                    'tenant_user_info' => [
+                        'id' => $user->id,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'password_hash_starts_with' => substr($user->password, 0, 10) . '...',
+                    ]
+                ];
+            }
+            
+            $result = [
+                'status' => 'success',
+                'tenant_info' => $centralDbInfo,
                 'tenant_user_info' => [
                     'id' => $user->id,
                     'email' => $user->email,
                     'role' => $user->role,
                     'password_hash_starts_with' => substr($user->password, 0, 10) . '...',
                 ],
-                'password_comparison' => [
-                    'hashes_match' => $user->password === $tenant->password,
-                    'tenant_password_looks_like_hash' => (strpos($tenant->password, '$2y$') === 0),
-                    'user_password_looks_like_hash' => (strpos($user->password, '$2y$') === 0)
-                ]
+                'password_comparison' => $passwordComparison
             ];
             
             return $result;
@@ -251,31 +328,65 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
         }
     });
     
-    // Password reset routes - will be implemented later
-    // Route::get('/forgot-password', [TenantUserViewController::class, 'showForgotPasswordForm'])->name('tenant.password.request');
-    // Route::post('/forgot-password', [TenantUserViewController::class, 'sendResetLinkEmail'])->name('tenant.password.email');
-    // Route::get('/reset-password/{token}', [TenantUserViewController::class, 'showResetPasswordForm'])->name('tenant.password.reset');
-    // Route::post('/reset-password', [TenantUserViewController::class, 'resetPassword'])->name('tenant.password.update');
-    
     // Registration routes - will be implemented later
     // Route::get('/register', [TenantUserViewController::class, 'showRegistrationForm'])->name('tenant.register');
     // Route::post('/register', [TenantUserViewController::class, 'register'])->name('tenant.register.submit');
     
     // Protected routes
-    Route::middleware(['auth:tenant'])->group(function () {
-        Route::get('/dashboard', [TenantUserViewController::class, 'dashboard'])->name('tenant.dashboard');
-        Route::post('/logout', [TenantUserViewController::class, 'logout'])->name('tenant.logout');
+    Route::middleware([\App\Http\Middleware\EnsureTenantIsActive::class . ':1,2', 'auth:tenant'])->group(function () {
+        // Dashboard route
+        Route::get('/dashboard', function () {
+            // Instead of trying to access the central database, use placeholder values
+            // or data from the tenant database to avoid connection errors
+            $totalIncome = 45000; // Placeholder value
+            $activeTenants = 25; // Placeholder value
+            $totalRevenue = 1200000; // Placeholder value
+            
+            return view('tenant.tenantdash', compact('totalIncome', 'activeTenants', 'totalRevenue'));
+        })->name('tenant.dashboard');
         
-        // User management routes
-        Route::prefix('users')->name('tenant.users.')->group(function () {
+        // User management routes (admin only)
+        Route::prefix('users')->middleware(\App\Http\Middleware\TenantAdminMiddleware::class)->name('tenant.users.')->group(function () {
             Route::get('/', [TenantUserViewController::class, 'index'])->name('index');
             Route::get('/create', [TenantUserViewController::class, 'create'])->name('create');
             Route::post('/', [TenantUserViewController::class, 'store'])->name('store');
-            Route::get('/{id}', [TenantUserViewController::class, 'show'])->name('show');
             Route::get('/{id}/edit', [TenantUserViewController::class, 'edit'])->name('edit');
             Route::put('/{id}', [TenantUserViewController::class, 'update'])->name('update');
             Route::delete('/{id}', [TenantUserViewController::class, 'destroy'])->name('destroy');
         });
+        
+        // Certificate routes
+        Route::prefix('certificates')->name('tenant.certificates.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'index'])->name('index');
+            Route::get('/download/{filename}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'downloadCertificate'])->name('download');
+            Route::get('/view/{filename}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'viewCertificate'])->name('view');
+            Route::get('/{type}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'showForm'])->name('form');
+            Route::post('/{type}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'submitForm'])->name('submit');
+        });
+        
+        // Settings routes
+        Route::prefix('settings')->name('tenant.settings.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'index'])->name('index');
+            
+            // Certificate header settings (available to all plans)
+            Route::post('/certificate', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'updateCertificateSettings'])
+                ->name('update-certificate');
+            
+            // Website settings (available to all plans)
+            Route::post('/website', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'updateWebsiteSettings'])
+                ->name('update-website');
+            
+            // Software updates (only for Ultimate plan)
+            Route::post('/check-updates', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'checkForUpdates'])
+                ->name('check-updates');
+            
+            // Theme customization (only for Ultimate plan) - permission check now in controller
+            Route::post('/save-theme', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'saveThemeSettings'])
+                ->name('save-theme');
+        });
+        
+        // Logout route
+        Route::post('/logout', [TenantUserViewController::class, 'logout'])->name('tenant.logout');
     });
     
     Route::get('/debug-domain', function () {
@@ -294,8 +405,8 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
 Route::middleware(array_merge(['api'], $tenantMiddleware))
     ->prefix('api')
     ->group(function () {
-        // Tenant User CRUD Routes
-        Route::prefix('users')->group(function () {
+        // Tenant User CRUD Routes - only accessible to admin users
+        Route::prefix('users')->middleware([\App\Http\Middleware\TenantAdminMiddleware::class])->group(function () {
             Route::get('/', [TenantUserController::class, 'index']);
             Route::post('/', [TenantUserController::class, 'store']);
             Route::get('/{id}', [TenantUserController::class, 'show']);

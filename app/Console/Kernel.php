@@ -28,6 +28,8 @@ class Kernel extends ConsoleKernel
         Commands\InitializeTenantDatabases::class,
         Commands\DisableExpiredTenants::class,
         Commands\CreateTenantAdminUser::class,
+        Commands\UpdateTenantSettingsTable::class,
+        Commands\SetupApplication::class,
     ];
     
     /**

@@ -47,20 +47,27 @@ class EnsureTenantIsActive
             }
             
             // Double-check via direct DB query to be sure - use central connection explicitly
-            $centralConnection = config('tenancy.database.central_connection', 'mysql');
-            $dbTenant = DB::connection($centralConnection)
-                        ->table('tenants')
-                        ->where('id', $tenant->id)
-                        ->first();
-            $isActiveDb = $dbTenant && $dbTenant->is_active;
+            try {
+                $centralConnection = config('tenancy.database.central_connection', 'mysql');
+                $dbTenant = DB::connection($centralConnection)
+                            ->table('tenants')
+                            ->where('id', $tenant->id)
+                            ->first();
+                $isActiveDb = $dbTenant && $dbTenant->is_active;
+                
+                // Log any discrepancies for debugging
+                if ($isActiveModel !== $isActiveDb) {
+                    Log::warning("Tenant {$tenant->id} has different active status values: Model={$isActiveModel}, DB={$isActiveDb}");
+                }
+            } catch (\Exception $e) {
+                // If we can't connect to the central database, log the error and continue
+                // using only the model's status
+                Log::error("Failed to check tenant status in central DB: " . $e->getMessage());
+                $isActiveDb = $isActiveModel;
+            }
             
             // Combine results - active if status is ACTIVE (1) AND not expired
             $isActive = ($isActiveModel == \App\Models\Tenant::ACTIVE) && !$isExpired;
-            
-            // Log any discrepancies for debugging
-            if ($isActiveModel !== $isActiveDb) {
-                Log::warning("Tenant {$tenant->id} has different active status values: Model={$isActiveModel}, DB={$isActiveDb}");
-            }
         }
         
         // Check if tenant exists and is active

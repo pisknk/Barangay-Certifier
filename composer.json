@@ -12,6 +12,7 @@
         "php": "^8.2",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "setasign/fpdf": "^1.8",
         "stancl/tenancy": "^3.9"
     },
     "require-dev": {

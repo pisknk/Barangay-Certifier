@@ -81,5 +81,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
+        'tenant.admin' => \App\Http\Middleware\TenantAdminMiddleware::class,
+        'subscription.feature' => \App\Http\Middleware\CheckSubscriptionFeatures::class,
     ];
 } 

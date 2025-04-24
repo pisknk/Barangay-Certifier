@@ -83,6 +83,7 @@
                       >
                         Edit
                       </a>
+                      @if($user->role !== 'admin')
                       <form action="{{ route('tenant.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?')">
                         @csrf
                         @method('DELETE')
@@ -90,6 +91,7 @@
                           Delete
                         </button>
                       </form>
+                      @endif
                     </div>
                   </td>
                 </tr>

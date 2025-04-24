@@ -37,6 +37,8 @@
       href="/assets/css/material-dashboard.css?v=3.2.0"
       rel="stylesheet"
     />
+    <!-- Custom CSS -->
+    <link href="/assets/css/custom.css" rel="stylesheet" />
 
     @stack('styles')
   </head>

@@ -187,7 +187,39 @@ class TenantUserViewController extends Controller
         if (Auth::guard('tenant')->attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
             Log::info("Login successful for: " . $credentials['email']);
-            return redirect()->intended(route('tenant.dashboard'));
+            
+            // Get theme settings directly from database
+            $themeSettings = DB::connection('tenant')
+                ->table('tenant_settings')
+                ->where('tenant_user_id', $user->id)
+                ->value('theme_settings');
+            
+            if ($themeSettings) {
+                // Store in session with user-specific key
+                $request->session()->put('user_'.$user->id.'_theme_settings', $themeSettings);
+                
+                // Add to flash data to make it available on the first page load, with user-specific key
+                $request->session()->flash('current_user_theme_settings', $themeSettings);
+                $request->session()->flash('current_user_id', $user->id);
+                
+                Log::info("Theme settings loaded for specific user", [
+                    'user_id' => $user->id,
+                    'has_settings' => !empty($themeSettings)
+                ]);
+            } else {
+                Log::info("No theme settings found for user {$user->id}");
+            }
+            
+            // Check if there's an intended URL in the session
+            $intendedUrl = $request->session()->get('url.intended');
+            
+            // If there's no intended URL or it's the login page, redirect to certificates
+            if (!$intendedUrl || $intendedUrl === route('tenant.login')) {
+                return redirect()->route('tenant.certificates.index');
+            }
+            
+            // Otherwise use the intended URL
+            return redirect()->intended(route('tenant.certificates.index'));
         }
 
         Log::error("Login failed: Password mismatch for " . $credentials['email']);
@@ -328,6 +360,6 @@ class TenantUserViewController extends Controller
         // Log the user in
         Auth::guard('tenant')->login($user);
 
-        return redirect()->route('tenant.dashboard');
+        return redirect()->route('tenant.certificates.index');
     }
 } 

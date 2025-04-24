@@ -4,6 +4,25 @@
 
 @section('content')
 <div class="container-fluid py-2">
+  <!-- Display flash messages -->
+  @if(session('error'))
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    {{ session('error') }}
+    <button type="button" class="btn-close text-lg py-3 opacity-10" data-bs-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  @endif
+  
+  @if(session('success'))
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    {{ session('success') }}
+    <button type="button" class="btn-close text-lg py-3 opacity-10" data-bs-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  @endif
+
   <div class="row">
     <div class="ms-3 d-flex justify-content-between align-items-center">
       <div>
@@ -12,11 +31,13 @@
           Quick glance at Active Members, Income, and More!
         </p>
       </div>
+      @if(Auth::guard('tenant')->user()->isAdmin())
       <div>
         <a href="{{ route('tenant.users.index') }}" class="btn btn-dark mb-0">
           <i class="material-symbols-rounded">group</i> Manage Users
         </a>
       </div>
+      @endif
     </div>
     <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
       <div class="card">
