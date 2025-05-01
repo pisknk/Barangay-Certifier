@@ -4,6 +4,25 @@
 
 @section('content')
 <div class="container-fluid py-2">
+  @php
+    // Check if update is available via cache
+    $updateInfo = \Cache::get('app_update_check');
+    $hasUpdate = $updateInfo['has_update'] ?? false;
+  @endphp
+  
+  @if($hasUpdate)
+  <div class="alert alert-info alert-dismissible fade show" role="alert">
+    <div class="d-flex align-items-center">
+      <i class="material-symbols-rounded me-2">system_update</i>
+      <div>
+        <strong>Update Available!</strong> Version {{ $updateInfo['latest_version'] }} is now available.
+        <a href="{{ route('admin.updates') }}" class="alert-link">Click here to update</a>.
+      </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  @endif
+  
   <div class="row">
     <div class="ms-3">
       <h3 class="mb-0 h4 font-weight-bolder">Dashboard</h3>

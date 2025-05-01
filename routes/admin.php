@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\AdminAuthController;
 use App\Http\Controllers\TestDashboardController;
 use App\Http\Controllers\TempDashController;
+use App\Http\Controllers\UpdateController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -116,4 +117,25 @@ Route::get('/test', function () {
 // Debug tenant status information - intentionally not behind auth for easier debugging
 Route::get('/tenant-debug', function () {
     return app()->call([app(AdminController::class), 'tenantDebug']);
-})->name('admin.tenant-debug'); 
+})->name('admin.tenant-debug');
+
+// System Update Routes
+Route::get('/updates', function () {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(UpdateController::class), 'index']);
+})->name('admin.updates');
+
+Route::get('/updates/check', function () {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(UpdateController::class), 'checkForUpdates']);
+})->name('admin.updates.check');
+
+Route::post('/updates/download', function () {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(UpdateController::class), 'downloadUpdate']);
+})->name('admin.updates.download');
+
+Route::post('/updates/install', function () {
+    if (!Auth::check()) return redirect()->route('admin.login');
+    return app()->call([app(UpdateController::class), 'installUpdate']);
+})->name('admin.updates.install'); 
