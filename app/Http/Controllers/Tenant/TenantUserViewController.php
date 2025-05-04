@@ -163,7 +163,7 @@ class TenantUserViewController extends Controller
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
+        $request->validate([
             'email' => 'required|email',
             'password' => 'required',
             'cf-turnstile-response' => 'required|string',
@@ -182,23 +182,29 @@ class TenantUserViewController extends Controller
         // Get the user for logging purposes
         $user = DB::connection('tenant')
             ->table('tenant_users')
-            ->where('email', $credentials['email'])
+            ->where('email', $request->email)
             ->first();
         
         if (!$user) {
-            Log::error("Login failed: User not found with email " . $credentials['email']);
+            Log::error("Login failed: User not found with email " . $request->email);
             return back()->withErrors([
                 'email' => 'The provided credentials do not match our records.',
             ])->onlyInput('email');
         }
         
         // Log hash details for debugging
-        Log::info("Login attempt for: " . $credentials['email'] . 
+        Log::info("Login attempt for: " . $request->email . 
                  ", Password hash in DB: " . substr($user->password, 0, 15) . "...");
 
-        if (Auth::guard('tenant')->attempt($credentials, $request->filled('remember'))) {
+        // Only use email and password for authentication
+        $authCredentials = [
+            'email' => $request->email,
+            'password' => $request->password
+        ];
+
+        if (Auth::guard('tenant')->attempt($authCredentials, $request->filled('remember'))) {
             $request->session()->regenerate();
-            Log::info("Login successful for: " . $credentials['email']);
+            Log::info("Login successful for: " . $request->email);
             
             // Get theme settings directly from database
             $themeSettings = DB::connection('tenant')
@@ -234,7 +240,7 @@ class TenantUserViewController extends Controller
             return redirect()->intended(route('tenant.certificates.index'));
         }
 
-        Log::error("Login failed: Password mismatch for " . $credentials['email']);
+        Log::error("Login failed: Password mismatch for " . $request->email);
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');

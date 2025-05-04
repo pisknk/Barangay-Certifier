@@ -13,6 +13,39 @@
 @endsection
 
 @section('content')
+<style>
+  .form-floating > .form-control {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    height: calc(3.5rem + 2px);
+    line-height: 1.25;
+  }
+  .form-floating > .form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+  .form-floating > .form-control::placeholder {
+    color: transparent;
+  }
+  .form-floating > .form-control:not(:placeholder-shown) {
+    padding-top: 1.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .form-floating > .form-control:-webkit-autofill {
+    padding-top: 1.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .form-floating > .form-control:focus ~ label,
+  .form-floating > .form-control:not(:placeholder-shown) ~ label {
+    opacity: 0.65;
+    transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+  }
+  .form-check-input {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+  }
+</style>
+
 <div class="container-fluid py-2">
   <!-- Display flash messages -->
   @if(session('error'))
@@ -57,37 +90,37 @@
 
               <!-- Common fields for all certificates -->
               <div class="row mb-3">
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Full Name</label>
-                    <input type="text" class="form-control" name="full_name" required>
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="full_name" name="full_name" placeholder="Full Name" required>
+                    <label for="full_name">Full Name</label>
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Purok</label>
-                    <input type="text" class="form-control" name="address" required>
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="address" name="address" placeholder="Purok" required>
+                    <label for="address">Purok</label>
                   </div>
                 </div>
               </div>
 
               <div class="row mb-3">
-                <div class="col-md-4">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Age</label>
-                    <input type="number" class="form-control" name="age" required>
+                <div class="col-md-4 mb-3">
+                  <div class="form-floating">
+                    <input type="number" class="form-control" id="age" name="age" placeholder="Age" required>
+                    <label for="age">Age</label>
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Civil Status</label>
-                    <input type="text" class="form-control" name="civil_status" required>
+                <div class="col-md-4 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="civil_status" name="civil_status" placeholder="Civil Status" required>
+                    <label for="civil_status">Civil Status</label>
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Contact Number</label>
-                    <input type="text" class="form-control" name="contact_number" required>
+                <div class="col-md-4 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="contact_number" name="contact_number" placeholder="Contact Number" required>
+                    <label for="contact_number">Contact Number</label>
                   </div>
                 </div>
               </div>
@@ -95,24 +128,24 @@
               <!-- Certificate-specific fields -->
               @if($type == 'business_clearance')
               <div class="row mb-3">
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Business Name</label>
-                    <input type="text" class="form-control" name="business_name" required>
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="business_name" name="business_name" placeholder="Business Name" required>
+                    <label for="business_name">Business Name</label>
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Business Address</label>
-                    <input type="text" class="form-control" name="business_address" required>
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="business_address" name="business_address" placeholder="Business Address" required>
+                    <label for="business_address">Business Address</label>
                   </div>
                 </div>
               </div>
               <div class="row mb-3">
-                <div class="col-md-12">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Business Nature</label>
-                    <input type="text" class="form-control" name="business_nature" required>
+                <div class="col-md-12 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="business_nature" name="business_nature" placeholder="Business Nature" required>
+                    <label for="business_nature">Business Nature</label>
                   </div>
                 </div>
               </div>
@@ -120,10 +153,10 @@
 
               @if($type == 'indigency')
               <div class="row mb-3">
-                <div class="col-md-12">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Purpose</label>
-                    <input type="text" class="form-control" name="purpose" required>
+                <div class="col-md-12 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="purpose" name="purpose" placeholder="Purpose" required>
+                    <label for="purpose">Purpose</label>
                   </div>
                 </div>
               </div>
@@ -131,24 +164,24 @@
 
               @if($type == 'barangay_clearance')
               <div class="row mb-3">
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Birthdate</label>
-                    <input type="date" class="form-control" name="birthdate">
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="date" class="form-control" id="birthdate" name="birthdate" placeholder="Birthdate">
+                    <label for="birthdate">Birthdate</label>
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Resident Since (Year)</label>
-                    <input type="text" class="form-control" name="since_year" placeholder="e.g. 1975">
+                <div class="col-md-6 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="since_year" name="since_year" placeholder="e.g. 1975">
+                    <label for="since_year">Resident Since (Year)</label>
                   </div>
                 </div>
               </div>
               <div class="row mb-3">
-                <div class="col-md-12">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Purpose</label>
-                    <input type="text" class="form-control" name="purpose" placeholder="e.g. FOR APPLICATION OF PROBATION">
+                <div class="col-md-12 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="purpose" name="purpose" placeholder="e.g. FOR APPLICATION OF PROBATION">
+                    <label for="purpose">Purpose</label>
                   </div>
                 </div>
               </div>
@@ -156,10 +189,10 @@
               
               @if($type == 'residency')
               <div class="row mb-3">
-                <div class="col-md-12">
-                  <div class="input-group input-group-outline mb-3">
-                    <label class="form-label">Purpose</label>
-                    <input type="text" class="form-control" name="purpose" placeholder="e.g. FOR IDENTIFICATION">
+                <div class="col-md-12 mb-3">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="purpose" name="purpose" placeholder="e.g. FOR IDENTIFICATION">
+                    <label for="purpose">Purpose</label>
                   </div>
                 </div>
               </div>
