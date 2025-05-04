@@ -46,25 +46,6 @@
           <span class="nav-link-text ms-1">Domain Status</span>
         </a>
       </li>
-      <li class="nav-item mt-3">
-        <h6 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder">System</h6>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link {{ request()->routeIs('admin.updates') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('admin.updates') }}">
-          <i class="material-symbols-rounded opacity-5">system_update</i>
-          <span class="nav-link-text ms-1">Updates</span>
-          @php
-            // Check if update is available via cache
-            $updateInfo = \Cache::get('app_update_check');
-            $hasUpdate = $updateInfo['has_update'] ?? false;
-          @endphp
-          @if($hasUpdate)
-            <span class="position-absolute top-50 end-90 translate-middle badge rounded-pill bg-danger">
-              New
-            </span>
-          @endif
-        </a>
-      </li>
     </ul>
   </div>
   <div class="sidenav-footer position-absolute w-100 bottom-0">

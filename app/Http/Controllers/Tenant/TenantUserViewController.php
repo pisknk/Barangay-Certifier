@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\TurnstileService;
 
 class TenantUserViewController extends Controller
 {
@@ -165,7 +166,18 @@ class TenantUserViewController extends Controller
         $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'cf-turnstile-response' => 'required|string',
         ]);
+
+        // Validate Turnstile
+        $turnstileService = app(\App\Services\TurnstileService::class);
+        $token = $request->input('cf-turnstile-response');
+        
+        if (!$turnstileService->validate($token)) {
+            return back()->withErrors([
+                'cf-turnstile-response' => 'captcha validation failed. please try again.',
+            ])->withInput($request->except('password'));
+        }
 
         // Get the user for logging purposes
         $user = DB::connection('tenant')

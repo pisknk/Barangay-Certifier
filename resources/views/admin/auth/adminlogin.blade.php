@@ -47,6 +47,14 @@
                 @error('password')
                 <div class="text-danger text-xs">{{ $message }}</div>
                 @enderror
+
+                <div class="turnstile-container-wrapper mb-3 d-flex justify-content-center">
+                  <div id="my-turnstile-widget"></div>
+                  <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response">
+                </div>
+                @error('cf-turnstile-response')
+                <div class="text-danger text-xs">{{ $message }}</div>
+                @enderror
                 
                 <div
                   class="form-check form-switch d-flex align-items-center mb-3"
@@ -66,6 +74,8 @@
                   <button
                     type="submit"
                     class="btn bg-gradient-dark w-100 my-4 mb-2"
+                    id="login-button"
+                    disabled
                   >
                     Sign in
                   </button>
@@ -106,3 +116,53 @@
   </div>
 </main>
 @endsection
+
+@push('styles')
+<style>
+  .turnstile-container-wrapper {
+    min-height: 70px;
+  }
+</style>
+@endpush
+
+@push('scripts')
+<!-- Single inline script with turnstile implementation -->
+<script>
+  // Don't start loading turnstile until the page is fully loaded
+  window.addEventListener('load', function() {
+    // Check if Turnstile script is already loaded
+    if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
+      var turnstileScript = document.createElement('script');
+      turnstileScript.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      turnstileScript.onload = function() {
+        renderTurnstile();
+      };
+      document.body.appendChild(turnstileScript);
+    } else {
+      // Script already exists, just render the widget
+      if (window.turnstile) {
+        renderTurnstile();
+      }
+    }
+  });
+
+  function renderTurnstile() {
+    // Clear previous widgets and render a new one
+    if (window.turnstile) {
+      // Remove all existing widgets first
+      const container = document.getElementById('my-turnstile-widget');
+      if (container) {
+        container.innerHTML = '';
+        
+        window.turnstile.render('#my-turnstile-widget', {
+          sitekey: '{{ env('CAPTCHA_KEY') }}',
+          callback: function(token) {
+            document.getElementById('cf-turnstile-response').value = token;
+            document.getElementById('login-button').disabled = false;
+          }
+        });
+      }
+    }
+  }
+</script>
+@endpush

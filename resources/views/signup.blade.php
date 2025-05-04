@@ -34,6 +34,16 @@
       rel="stylesheet"
     />
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+    <!-- Turnstile container styling -->
+    <style>
+      .turnstile-container-wrapper {
+        min-height: 70px;
+        display: flex;
+        justify-content: center;
+        margin-bottom: 15px;
+      }
+    </style>
   </head>
 
   <body class="bg-gray-200">
@@ -100,6 +110,16 @@
                           <input type="text" name="barangay" class="form-control" required>
                         </div>
                         <input type="hidden" name="subscription_plan" id="subscription_plan" value="Basic">
+                        
+                        <!-- Turnstile Widget -->
+                        <div class="turnstile-container-wrapper">
+                          <div id="signup-turnstile-widget"></div>
+                          <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response">
+                        </div>
+                        @error('cf-turnstile-response')
+                        <div class="text-danger text-xs">{{ $message }}</div>
+                        @enderror
+                        
                         <div
                           class="form-check form-switch d-flex align-items-center mb-3"
                         >
@@ -117,6 +137,8 @@
                           <button
                             type="submit"
                             class="btn bg-gradient-dark w-100 my-4 mb-2"
+                            id="signup-button"
+                            disabled
                           >
                             Sign up
                           </button>
@@ -256,6 +278,47 @@
     <script src="{{ asset('assets/js/core/bootstrap.min.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/perfect-scrollbar.min.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/smooth-scrollbar.min.js') }}"></script>
+    
+    <!-- Turnstile Script -->
+    <script>
+      // Load Turnstile after the page is loaded
+      window.addEventListener('load', function() {
+        // Check if Turnstile script is already loaded
+        if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
+          var turnstileScript = document.createElement('script');
+          turnstileScript.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          turnstileScript.onload = function() {
+            renderTurnstile();
+          };
+          document.body.appendChild(turnstileScript);
+        } else {
+          // Script already exists, just render the widget
+          if (window.turnstile) {
+            renderTurnstile();
+          }
+        }
+      });
+
+      function renderTurnstile() {
+        // Clear previous widgets and render a new one
+        if (window.turnstile) {
+          // Remove all existing widgets first
+          const container = document.getElementById('signup-turnstile-widget');
+          if (container) {
+            container.innerHTML = '';
+            
+            window.turnstile.render('#signup-turnstile-widget', {
+              sitekey: '{{ env('CAPTCHA_KEY') }}',
+              callback: function(token) {
+                document.getElementById('cf-turnstile-response').value = token;
+                document.getElementById('signup-button').disabled = false;
+              }
+            });
+          }
+        }
+      }
+    </script>
+    
     <script>
       var win = navigator.platform.indexOf("Win") > -1;
       if (win && document.querySelector("#sidenav-scrollbar")) {
@@ -309,6 +372,8 @@
         const form = document.getElementById('signupForm');
         form.addEventListener('submit', function(event) {
           const termsCheckbox = document.getElementById('terms');
+          const turnstileResponse = document.getElementById('cf-turnstile-response').value;
+          
           if (!termsCheckbox.checked) {
             event.preventDefault();
             console.log('Form submission prevented: Terms not accepted');
@@ -322,6 +387,20 @@
             } catch (error) {
               console.error('Error showing terms toast:', error);
               alert('Please agree to the Terms and Conditions');
+            }
+          } else if (!turnstileResponse) {
+            event.preventDefault();
+            console.log('Form submission prevented: Captcha not completed');
+            
+            // Show toast for captcha error
+            document.getElementById('toastMessage').textContent = 'Please complete the captcha verification';
+            try {
+              const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+              toast.show();
+              console.log('Captcha error toast shown');
+            } catch (error) {
+              console.error('Error showing captcha toast:', error);
+              alert('Please complete the captcha verification');
             }
           } else {
             console.log('Form submission accepted: All validations passed');

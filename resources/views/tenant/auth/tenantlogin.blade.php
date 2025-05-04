@@ -1,6 +1,6 @@
 @extends('layouts.admin', ['hideNavbar' => true, 'hideConfigPanel' => true])
 
-@section('title', 'Login to Barangay {{$tenant->barangay}}') <!-- base the barangay name off the "barangay" field in the "tenants" table -->
+@section('title', 'Login to Barangay') <!-- base the barangay name off the "barangay" field in the "tenants" table -->
 
 @section('content')
 @push('scripts')
@@ -24,7 +24,52 @@
             console.error('Error applying theme on login page:', e);
         }
     });
+    
+    // Don't start loading turnstile until the page is fully loaded
+    window.addEventListener('load', function() {
+        // Check if Turnstile script is already loaded
+        if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
+            var turnstileScript = document.createElement('script');
+            turnstileScript.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+            turnstileScript.onload = function() {
+                renderTurnstile();
+            };
+            document.body.appendChild(turnstileScript);
+        } else {
+            // Script already exists, just render the widget
+            if (window.turnstile) {
+                renderTurnstile();
+            }
+        }
+    });
+
+    function renderTurnstile() {
+        // Clear previous widgets and render a new one
+        if (window.turnstile) {
+            // Remove all existing widgets first
+            const container = document.getElementById('tenant-turnstile-widget');
+            if (container) {
+                container.innerHTML = '';
+                
+                window.turnstile.render('#tenant-turnstile-widget', {
+                    sitekey: '{{ env('CAPTCHA_KEY') }}',
+                    callback: function(token) {
+                        document.getElementById('cf-turnstile-response').value = token;
+                        document.getElementById('tenant-login-button').disabled = false;
+                    }
+                });
+            }
+        }
+    }
 </script>
+@endpush
+
+@push('styles')
+<style>
+    .turnstile-container-wrapper {
+        min-height: 70px;
+    }
+</style>
 @endpush
 
 <main class="main-content mt-0">
@@ -48,7 +93,7 @@
                 <h4
                   class="text-white font-weight-bolder text-center mt-2 mb-0"
                 >
-                  Welcome to Barangay {{$tenant->barangay}}
+                  Welcome to <br> Barangay {{$tenant->barangay}}
                 </h4>
                 <br />
               </div>
@@ -77,6 +122,15 @@
                 @error('password')
                 <div class="text-danger text-xs">{{ $message }}</div>
                 @enderror
+
+                <!-- Turnstile Widget -->
+                <div class="turnstile-container-wrapper mb-3 d-flex justify-content-center">
+                  <div id="tenant-turnstile-widget"></div>
+                  <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response">
+                </div>
+                @error('cf-turnstile-response')
+                <div class="text-danger text-xs">{{ $message }}</div>
+                @enderror
                 
                 <div
                   class="form-check form-switch d-flex align-items-center mb-3"
@@ -96,16 +150,12 @@
                   <button
                     type="submit"
                     class="btn bg-gradient-dark w-100 my-4 mb-2"
+                    id="tenant-login-button"
+                    disabled
                   >
                     Sign in
                   </button>
                 </div>
-                
-                <p class="mt-3 text-sm text-center">
-                  <a href="/admin/password-reset" class="text-dark font-weight-bolder">
-                    Forgot password or having trouble signing in?
-                  </a>
-                </p>
                 
               </form>
             </div>

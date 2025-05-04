@@ -15,6 +15,7 @@ use App\Mail\ApprovedMail;
 use Stancl\Tenancy\Database\TenantCollection;
 use Stancl\Tenancy\TenantManager;
 use Illuminate\Support\Facades\DB;
+use App\Services\TurnstileService;
 
 class TenantController extends Controller
 {
@@ -62,6 +63,21 @@ class TenantController extends Controller
         DB::beginTransaction();
         
         try {
+            // Validate Turnstile first
+            $turnstileService = app(\App\Services\TurnstileService::class);
+            $token = $request->input('cf-turnstile-response');
+            
+            if (empty($token) || !$turnstileService->validate($token)) {
+                DB::rollBack();
+                Log::warning("Captcha validation failed during signup");
+                
+                if ($request->expectsJson()) {
+                    return response()->json(['error' => 'Captcha validation failed. Please try again.'], 422);
+                }
+                
+                return redirect()->back()->with('error', 'Captcha validation failed. Please try again.');
+            }
+            
             // Create a slugified version of the barangay name
             $barangaySlug = Str::slug($request->barangay);
             $tenantId = $barangaySlug;
@@ -84,6 +100,7 @@ class TenantController extends Controller
                 'barangay' => 'required|string|max:255',
                 'email' => 'required|email|unique:tenants,email',
                 'subscription_plan' => 'required|in:Basic,Essentials,Ultimate',
+                'cf-turnstile-response' => 'required|string',
             ]);
             
             // Domain should include the full domain with port

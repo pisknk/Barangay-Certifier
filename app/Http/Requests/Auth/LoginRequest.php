@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\TurnstileService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -26,10 +27,17 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ];
+
+        // Only validate turnstile for admin routes
+        if (request()->is('admin/*') || request()->is('admin')) {
+            $rules['cf-turnstile-response'] = ['required', 'string'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -40,6 +48,18 @@ class LoginRequest extends FormRequest
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
+        
+        // Validate Turnstile for admin routes
+        if ((request()->is('admin/*') || request()->is('admin')) && $this->has('cf-turnstile-response')) {
+            $turnstileService = app(TurnstileService::class);
+            $token = $this->input('cf-turnstile-response');
+            
+            if (!$turnstileService->validate($token)) {
+                throw ValidationException::withMessages([
+                    'cf-turnstile-response' => 'captcha validation failed. please try again.',
+                ]);
+            }
+        }
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
