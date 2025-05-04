@@ -152,4 +152,64 @@ class TenantCertificateController extends Controller
         
         return response()->file($path);
     }
+    
+    /**
+     * Email the certificate to a resident
+     * 
+     * @param \Illuminate\Http\Request $request
+     * @param string $filename
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function emailCertificate(Request $request, $filename)
+    {
+        try {
+            // Validate request
+            $request->validate([
+                'resident_email' => 'required|email',
+                'email_message' => 'nullable|string',
+            ]);
+            
+            $path = storage_path('app/public/certificates/' . $filename);
+            
+            if (!file_exists($path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Certificate not found.'
+                ], 404);
+            }
+            
+            // Get tenant information for the email
+            $tenant = tenant();
+            $barangayName = $tenant->barangay ?? 'Barangay Office';
+            
+            // Send the email with attachment
+            \Mail::send('emails.certificate', [
+                'emailMessage' => $request->email_message,
+                'barangayName' => $barangayName,
+            ], function ($message) use ($request, $path, $filename, $barangayName) {
+                $message->to($request->resident_email)
+                    ->subject('Your Certificate from ' . $barangayName)
+                    ->attach($path, [
+                        'as' => $filename,
+                        'mime' => 'application/pdf',
+                    ]);
+            });
+            
+            // Return success response
+            return response()->json([
+                'success' => true,
+                'message' => 'Certificate has been sent to ' . $request->resident_email
+            ]);
+            
+        } catch (\Exception $e) {
+            // Log the error
+            \Log::error('Failed to send certificate email: ' . $e->getMessage());
+            
+            // Return error response
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 } 

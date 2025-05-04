@@ -360,6 +360,7 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
             Route::get('/', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'index'])->name('index');
             Route::get('/download/{filename}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'downloadCertificate'])->name('download');
             Route::get('/view/{filename}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'viewCertificate'])->name('view');
+            Route::post('/email/{filename}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'emailCertificate'])->name('email');
             Route::get('/{type}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'showForm'])->name('form');
             Route::post('/{type}', [App\Http\Controllers\Tenant\TenantCertificateController::class, 'submitForm'])->name('submit');
         });
