@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 
 class TenantSettingsController extends Controller
 {
@@ -156,14 +159,103 @@ class TenantSettingsController extends Controller
     /**
      * Check for software updates
      * 
-     * @return \Illuminate\Http\RedirectResponse
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
      */
-    public function checkForUpdates()
+    public function checkForUpdates(Request $request)
     {
-        // Simulate checking for updates
-        sleep(1);
+        // Get the current authenticated user and tenant
+        $user = Auth::guard('tenant')->user();
+        $tenant = tenant();
         
-        return redirect()->route('tenant.settings.index')->with('success', 'Software is up to date!');
+        // Check if user has permission to check for updates (Ultimate plan only)
+        $tenantPlan = $tenant->subscription_plan ?? 'Basic P399';
+        $canGetSoftwareUpdates = (stripos(strtolower($tenantPlan), 'ultimate') !== false);
+        
+        if (!$canGetSoftwareUpdates) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Software updates are only available on the Ultimate plan.'
+                ], 403);
+            }
+            
+            return redirect()->route('tenant.settings.index')
+                ->with('error', 'Software updates are only available on the Ultimate plan.');
+        }
+        
+        try {
+            // Run the artisan command to check for updates with force flag
+            $exitCode = Artisan::call('system:check-updates', ['--force' => true]);
+            
+            // Check exit code to determine the result
+            if ($exitCode === 1) {
+                // Update available
+                $updateFile = storage_path('app/system/update_available.json');
+                if (file_exists($updateFile)) {
+                    $updateInfo = json_decode(file_get_contents($updateFile), true);
+                    $message = 'New version available: ' . $updateInfo['latest_version'] . 
+                               ' (' . $updateInfo['version_name'] . ')';
+                    
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => $message,
+                            'update_available' => true,
+                            'update_info' => $updateInfo
+                        ]);
+                    }
+                    
+                    return redirect()->route('tenant.settings.index')
+                        ->with('info', $message);
+                }
+                
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'A new version is available!',
+                        'update_available' => true
+                    ]);
+                }
+                
+                return redirect()->route('tenant.settings.index')
+                    ->with('info', 'A new version is available!');
+            } elseif ($exitCode === 0) {
+                // No updates available
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Software is up to date!',
+                        'update_available' => false
+                    ]);
+                }
+                
+                return redirect()->route('tenant.settings.index')
+                    ->with('success', 'Software is up to date!');
+            } else {
+                // Error checking for updates
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Failed to check for updates. Please try again later.'
+                    ]);
+                }
+                
+                return redirect()->route('tenant.settings.index')
+                    ->with('error', 'Failed to check for updates. Please try again later.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error checking for updates: ' . $e->getMessage());
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'An error occurred while checking for updates: ' . $e->getMessage()
+                ]);
+            }
+            
+            return redirect()->route('tenant.settings.index')
+                ->with('error', 'An error occurred while checking for updates: ' . $e->getMessage());
+        }
     }
     
     /**
@@ -263,6 +355,124 @@ class TenantSettingsController extends Controller
         }
     }
     
+    /**
+     * Perform system update
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function performUpdate(Request $request)
+    {
+        // Get the current authenticated user and tenant
+        $user = Auth::guard('tenant')->user();
+        $tenant = tenant();
+        
+        // Check if user has permission to get updates (Ultimate plan only)
+        $tenantPlan = $tenant->subscription_plan ?? 'Basic P399';
+        $canGetSoftwareUpdates = (stripos(strtolower($tenantPlan), 'ultimate') !== false);
+        
+        if (!$canGetSoftwareUpdates) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Software updates are only available on the Ultimate plan.'
+            ], 403);
+        }
+        
+        // Check if update is available
+        $updateFile = storage_path('app/system/update_available.json');
+        if (!file_exists($updateFile)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No update information available. Please check for updates first.'
+            ], 400);
+        }
+        
+        try {
+            // Read update info
+            $updateInfo = json_decode(file_get_contents($updateFile), true);
+            $currentVersion = $updateInfo['current_version'] ?? 'Unknown';
+            $latestVersion = $updateInfo['latest_version'] ?? 'Unknown';
+            
+            // Start the update process in the background
+            $process = Process::start('cd ' . base_path() . ' && php artisan system:update --force > '.storage_path('logs/update.log').' 2>&1');
+            
+            // Return initial response
+            return response()->json([
+                'status' => 'success',
+                'message' => "Update process started. Updating from version {$currentVersion} to {$latestVersion}.",
+                'current_version' => $currentVersion,
+                'latest_version' => $latestVersion,
+                'process_id' => $process->id(),
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error starting update process: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while starting the update process: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get update progress
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUpdateProgress(Request $request)
+    {
+        // Get the log file
+        $logFile = storage_path('logs/update.log');
+        
+        if (!file_exists($logFile)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Update log file not found',
+                'progress' => 0,
+                'logs' => []
+            ]);
+        }
+        
+        try {
+            // Read the log file
+            $logs = file_get_contents($logFile);
+            $logLines = array_filter(explode("\n", $logs));
+            
+            // Calculate progress based on log content
+            $progress = 0;
+            $totalSteps = 7; // backup, download, extract, apply, finalize, update version, cleanup
+            
+            if (strpos($logs, 'Creating system backup') !== false) $progress = max($progress, 1);
+            if (strpos($logs, 'Downloading update package') !== false) $progress = max($progress, 2);
+            if (strpos($logs, 'Extracting update package') !== false) $progress = max($progress, 3);
+            if (strpos($logs, 'Applying update') !== false) $progress = max($progress, 4);
+            if (strpos($logs, 'Finalizing update') !== false) $progress = max($progress, 5);
+            if (strpos($logs, 'Updating version record') !== false) $progress = max($progress, 6);
+            if (strpos($logs, 'Cleaning up') !== false) $progress = max($progress, 7);
+            if (strpos($logs, 'System update completed successfully') !== false) $progress = $totalSteps;
+            
+            $percentProgress = ($progress / $totalSteps) * 100;
+            
+            return response()->json([
+                'status' => 'success',
+                'progress' => round($percentProgress),
+                'logs' => $logLines,
+                'completed' => $progress >= $totalSteps || strpos($logs, 'System update completed successfully') !== false,
+                'error' => strpos($logs, 'Error') !== false,
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error reading update progress: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while reading update progress: ' . $e->getMessage(),
+                'progress' => 0,
+                'logs' => []
+            ], 500);
+        }
+    }
+
     /**
      * Get theme settings via AJAX
      * 

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\App;
 
 class SystemVersion extends Model
 {
@@ -31,6 +33,23 @@ class SystemVersion extends Model
         'release_date' => 'datetime',
         'is_critical_update' => 'boolean',
     ];
+    
+    /**
+     * Get the connection to use for the model.
+     * This automatically detects whether we're in a tenant context or not.
+     *
+     * @return string
+     */
+    public function getConnectionName()
+    {
+        // If app is running in tenant context and 'tenant.id' is set
+        if (App::has('tenant') && tenant() && tenant()->id) {
+            return 'tenant';
+        }
+        
+        // Otherwise use the default connection
+        return parent::getConnectionName();
+    }
 
     /**
      * Get the current system version
@@ -49,8 +68,13 @@ class SystemVersion extends Model
      */
     public static function currentVersion()
     {
-        $version = self::current();
-        return $version ? $version->version_number : '1.0.0';
+        try {
+            $version = self::current();
+            return $version ? $version->version_number : '1.0.0';
+        } catch (\Exception $e) {
+            // If there's an error (like table doesn't exist), return a default version
+            return '2.2';
+        }
     }
 
     /**

@@ -381,6 +381,13 @@ Route::middleware(array_merge(['web'], $tenantMiddleware))->group(function () {
             Route::post('/check-updates', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'checkForUpdates'])
                 ->name('check-updates');
             
+            // New routes for update operations
+            Route::post('/perform-update', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'performUpdate'])
+                ->name('perform-update');
+            
+            Route::get('/update-progress', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'getUpdateProgress'])
+                ->name('update-progress');
+            
             // Theme customization (only for Ultimate plan) - permission check now in controller
             Route::post('/save-theme', [App\Http\Controllers\Tenant\TenantSettingsController::class, 'saveThemeSettings'])
                 ->name('save-theme');
@@ -413,6 +420,24 @@ Route::middleware(array_merge(['api'], $tenantMiddleware))
             Route::get('/{id}', [TenantUserController::class, 'show']);
             Route::put('/{id}', [TenantUserController::class, 'update']);
             Route::delete('/{id}', [TenantUserController::class, 'destroy']);
+        });
+        
+        // Check for update file - no auth required
+        Route::get('/check-update-file', function() {
+            $updateFile = storage_path('app/system/update_available.json');
+            $hasUpdate = file_exists($updateFile);
+            
+            if ($hasUpdate) {
+                $updateInfo = json_decode(file_get_contents($updateFile), true);
+                return response()->json([
+                    'update_available' => true,
+                    'update_info' => $updateInfo
+                ]);
+            } else {
+                return response()->json([
+                    'update_available' => false
+                ]);
+            }
         });
         
         // Test routes

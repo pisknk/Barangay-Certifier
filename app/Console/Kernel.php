@@ -30,6 +30,7 @@ class Kernel extends ConsoleKernel
         Commands\CreateTenantAdminUser::class,
         Commands\UpdateTenantSettingsTable::class,
         Commands\SetupApplication::class,
+        Commands\CreateTenantSystemVersionsTable::class,
     ];
     
     /**

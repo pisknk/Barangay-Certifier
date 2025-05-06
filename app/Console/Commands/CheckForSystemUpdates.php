@@ -45,15 +45,33 @@ class CheckForSystemUpdates extends Command
         // Check if we should skip due to recent check (unless forced)
         $forceCheck = $this->option('force');
         $lastCheckFile = storage_path('app/system/last_update_check.txt');
+        $updateFile = storage_path('app/system/update_available.json');
+        
+        // Check if we have a stored update available
+        $hasStoredUpdate = File::exists($updateFile);
         
         if (!$forceCheck && File::exists($lastCheckFile)) {
             $lastCheck = File::get($lastCheckFile);
             $lastCheckTime = (int) $lastCheck;
             $hoursSinceLastCheck = (time() - $lastCheckTime) / 3600;
             
-            // If we checked in the last 24 hours and not forcing, skip
+            // If we checked in the last 24 hours and not forcing, skip the GitHub check
             if ($hoursSinceLastCheck < 24) {
                 $this->info("Last check was only {$hoursSinceLastCheck} hours ago. Use --force to check anyway.");
+                
+                // If we have a stored update, show it
+                if ($hasStoredUpdate) {
+                    $updateInfo = json_decode(File::get($updateFile), true);
+                    if (isset($updateInfo['latest_version']) && isset($updateInfo['version_name'])) {
+                        $this->info("New version available: {$updateInfo['latest_version']} ({$updateInfo['version_name']})");
+                        $this->info("Release notes: " . (isset($updateInfo['release_notes']) ? 
+                            substr($updateInfo['release_notes'], 0, 200) . 
+                            (strlen($updateInfo['release_notes']) > 200 ? '...' : '') : 
+                            'No release notes available'));
+                        return 1; // Update available
+                    }
+                }
+                
                 return 0;
             }
         }

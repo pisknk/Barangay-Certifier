@@ -22,6 +22,15 @@
     </button>
   </div>
   @endif
+  
+  @if(session('info'))
+  <div class="alert alert-info alert-dismissible fade show" role="alert">
+    {{ session('info') }}
+    <button type="button" class="btn-close text-lg py-3 opacity-10" data-bs-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  @endif
 
   <div class="row">
     <div class="col-12">
@@ -246,21 +255,65 @@
                       </div>
                       <div class="card-body p-3">
                         <p>Check for the latest version of Barangay Certifier.</p>
+                        
+                        <!-- Container for update info - hidden by default -->
+                        <div id="update-info-container" class="mb-3" style="display:none;">
+                          <div class="alert alert-info">
+                            <h6 class="alert-heading font-weight-bold">Update Available</h6>
+                            <div id="update-info">
+                              <p class="mb-1"><strong>Current Version:</strong> <span id="current-version">-</span></p>
+                              <p class="mb-1"><strong>New Version:</strong> <span id="new-version">-</span></p>
+                              <p class="mb-1"><strong>Release Name:</strong> <span id="version-name">-</span></p>
+                              <div class="mt-2">
+                                <p class="mb-1"><strong>Release Notes:</strong></p>
+                                <div id="release-notes" class="p-2 bg-light rounded" style="max-height: 150px; overflow-y: auto;">
+                                  -
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- Update progress container - hidden by default -->
+                        <div id="update-progress-container" class="mb-3" style="display:none;">
+                          <h6 class="font-weight-bold">Update in Progress</h6>
+                          <div class="progress mb-2">
+                            <div id="update-progress-bar" class="progress-bar bg-gradient-info" role="progressbar" 
+                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                          <p class="text-sm" id="update-status">Preparing to update...</p>
+                          
+                          <!-- Log output container -->
+                          <div class="mt-3">
+                            <h6 class="font-weight-bold">Update Log</h6>
+                            <div id="update-log" class="p-2 bg-dark text-white rounded" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                              Waiting for update to start...
+                            </div>
+                          </div>
+                        </div>
+                        
                         <div class="text-center">
-                          <form action="{{ route('tenant.settings.check-updates') }}" method="POST">
+                          <!-- Check for updates button -->
+                          <form id="check-updates-form" action="{{ route('tenant.settings.check-updates') }}" method="POST">
                             @csrf
-                            <button type="submit" class="btn bg-gradient-info mb-0" {{ $canGetSoftwareUpdates ? '' : 'disabled' }}>
+                            <button type="submit" id="check-updates-btn" class="btn bg-gradient-info mb-0" {{ $canGetSoftwareUpdates ? '' : 'disabled' }}>
                               <i class="material-symbols-rounded me-2">update</i>
                               Check for Updates
                             </button>
-                            
-                            @if(!$canGetSoftwareUpdates)
-                            <div class="mt-2 text-muted">
-                              <span class="material-symbols-rounded text-warning align-middle" style="font-size: 16px;">lock</span>
-                              Upgrade to Ultimate plan to access software updates
-                            </div>
-                            @endif
                           </form>
+                          
+                          <!-- Update now button - hidden by default -->
+                          <button id="update-now-btn" class="btn bg-gradient-success mb-0 mt-2" style="display:none;">
+                            <i class="material-symbols-rounded me-2">system_update</i>
+                            Update Now
+                          </button>
+                            
+                          @if(!$canGetSoftwareUpdates)
+                          <div class="mt-2 text-muted">
+                            <span class="material-symbols-rounded text-warning align-middle" style="font-size: 16px;">lock</span>
+                            Upgrade to Ultimate plan to access software updates
+                          </div>
+                          @endif
                         </div>
                       </div>
                     </div>
@@ -396,6 +449,35 @@
     </div>
   </footer>
 </div>
+
+<!-- Update Confirmation Modal -->
+<div class="modal fade" id="updateConfirmModal" tabindex="-1" role="dialog" aria-labelledby="updateConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="updateConfirmModalLabel">Confirm System Update</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to update the system now?</p>
+        <div class="alert alert-warning">
+          <i class="material-symbols-rounded me-2">warning</i>
+          This will temporarily make the application unavailable while the update is in progress.
+        </div>
+        <p class="mb-0">Make sure you have backed up your data before proceeding.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn bg-gradient-success" id="confirm-update-btn">
+          <i class="material-symbols-rounded me-2">system_update</i>
+          Update Now
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('styles')
@@ -511,5 +593,359 @@
       }
     });
   }
+  
+  // Software update functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    // DOM elements
+    const checkUpdatesForm = document.getElementById('check-updates-form');
+    const checkUpdatesBtn = document.getElementById('check-updates-btn');
+    const updateNowBtn = document.getElementById('update-now-btn');
+    const updateInfoContainer = document.getElementById('update-info-container');
+    const updateProgressContainer = document.getElementById('update-progress-container');
+    const updateProgressBar = document.getElementById('update-progress-bar');
+    const updateStatus = document.getElementById('update-status');
+    const updateLog = document.getElementById('update-log');
+    
+    // Elements for update info
+    const currentVersionEl = document.getElementById('current-version');
+    const newVersionEl = document.getElementById('new-version');
+    const versionNameEl = document.getElementById('version-name');
+    const releaseNotesEl = document.getElementById('release-notes');
+    
+    // Variables to track update state
+    let updateInProgress = false;
+    let updatePollingInterval = null;
+    
+    // Check if there's already an update available when the page loads
+    checkForStoredUpdateInfo();
+    
+    // Check for a stored update file
+    function checkForStoredUpdateInfo() {
+      fetch('{{ route("tenant.settings.update-progress") }}')
+        .then(response => response.json())
+        .then(data => {
+          // If an update is in progress, show the progress UI
+          if (data.progress > 0 && data.progress < 100 && !data.error) {
+            showUpdateProgress(data.progress, data.logs);
+            startUpdatePolling();
+          } else {
+            // Check for available update
+            checkStoredUpdateFile();
+          }
+        })
+        .catch(error => {
+          console.error('Error checking update progress:', error);
+          // Check for available update
+          checkStoredUpdateFile();
+        });
+    }
+    
+    // Check for stored update file on page load
+    function checkStoredUpdateFile() {
+      fetch('/api/check-update-file', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.update_available) {
+          displayUpdateInfo(data.update_info);
+        }
+      })
+      .catch(error => {
+        console.error('Error checking for stored update file:', error);
+      });
+    }
+    
+    // Intercept form submission to use AJAX instead
+    if (checkUpdatesForm) {
+      checkUpdatesForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Disable the button and show loading state
+        checkUpdatesBtn.disabled = true;
+        checkUpdatesBtn.innerHTML = '<i class="material-symbols-rounded me-2">hourglass_top</i> Checking...';
+        
+        // Make AJAX request to check for updates
+        fetch(checkUpdatesForm.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+          },
+          body: JSON.stringify({})
+        })
+        .then(response => {
+          // Check if we got redirected
+          if (response.redirected) {
+            window.location.href = response.url;
+            return null;
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data) {
+            if (data.status === 'success') {
+              // Show update info
+              displayUpdateInfo(data.update_info);
+            } else {
+              // Show error message
+              alert(data.message || 'Failed to check for updates');
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error checking for updates:', error);
+          alert('An error occurred while checking for updates. Please try again later.');
+        })
+        .finally(() => {
+          // Re-enable the button and reset text
+          checkUpdatesBtn.disabled = false;
+          checkUpdatesBtn.innerHTML = '<i class="material-symbols-rounded me-2">update</i> Check for Updates';
+        });
+      });
+    }
+    
+    // Display update information
+    function displayUpdateInfo(updateInfo) {
+      if (!updateInfo) return;
+      
+      // Show update info container
+      updateInfoContainer.style.display = 'block';
+      
+      // Fill in update details
+      currentVersionEl.textContent = updateInfo.current_version || '-';
+      newVersionEl.textContent = updateInfo.latest_version || '-';
+      versionNameEl.textContent = updateInfo.version_name || 'Unnamed Release';
+      releaseNotesEl.innerHTML = formatReleaseNotes(updateInfo.release_notes) || 'No release notes available';
+      
+      // Show update button
+      updateNowBtn.style.display = 'inline-block';
+      
+      // Remove existing event listeners and add new one
+      updateNowBtn.replaceWith(updateNowBtn.cloneNode(true));
+      // Get the fresh reference after replacement
+      const freshUpdateBtn = document.getElementById('update-now-btn');
+      // Add the click handler
+      freshUpdateBtn.addEventListener('click', startUpdate);
+    }
+    
+    // Format release notes with some basic Markdown-like support
+    function formatReleaseNotes(releaseNotes) {
+      if (!releaseNotes) return '';
+      
+      // Convert GitHub flavor markdown to HTML
+      let html = releaseNotes
+        // Convert ** or __ to bold
+        .replace(/(\*\*|__)(.*?)\1/g, '<strong>$2</strong>')
+        // Convert * or _ to italic
+        .replace(/(\*|_)(.*?)\1/g, '<em>$2</em>')
+        // Convert ### headers
+        .replace(/###(.*)/g, '<h5>$1</h5>')
+        // Convert ## headers
+        .replace(/##(.*)/g, '<h4>$1</h4>')
+        // Convert # headers
+        .replace(/#(.*)/g, '<h3>$1</h3>')
+        // Convert URLs to links
+        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>')
+        // Convert newlines to <br>
+        .replace(/\n/g, '<br>');
+        
+      return html;
+    }
+    
+    // Start the update process
+    function startUpdate() {
+      if (updateInProgress) return;
+      
+      // Show the Bootstrap modal instead of using native confirm dialog
+      const updateConfirmModal = new bootstrap.Modal(document.getElementById('updateConfirmModal'));
+      updateConfirmModal.show();
+    }
+    
+    // Handle the actual update when confirmed via modal
+    document.getElementById('confirm-update-btn').addEventListener('click', function() {
+      // Hide the modal
+      const updateConfirmModal = bootstrap.Modal.getInstance(document.getElementById('updateConfirmModal'));
+      updateConfirmModal.hide();
+      
+      updateInProgress = true;
+      
+      // Hide update info and show progress UI
+      updateInfoContainer.style.display = 'none';
+      updateProgressContainer.style.display = 'block';
+      
+      // Disable update button
+      updateNowBtn.disabled = true;
+      updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">hourglass_top</i> Starting...';
+      
+      // Make AJAX request to start the update
+      fetch('{{ route("tenant.settings.perform-update") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+        },
+        body: JSON.stringify({})
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          // Update initiated successfully, start polling for progress
+          updateStatus.textContent = 'Update process started. Please do not close this window.';
+          updateLog.innerHTML = 'Update process initiated. Starting update from ' + data.current_version + ' to ' + data.latest_version + '...\n';
+          
+          // Start polling for progress
+          startUpdatePolling();
+        } else {
+          // Show error message
+          updateStatus.textContent = 'Failed to start update: ' + (data.message || 'Unknown error');
+          updateLog.innerHTML += 'Error: ' + (data.message || 'Unknown error') + '\n';
+          updateProgressBar.classList.remove('bg-gradient-info');
+          updateProgressBar.classList.add('bg-gradient-danger');
+          
+          // Re-enable update button after delay
+          setTimeout(() => {
+            updateNowBtn.disabled = false;
+            updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">system_update</i> Try Again';
+            
+            // Replace the button to remove any existing listeners and add new one
+            updateNowBtn.replaceWith(updateNowBtn.cloneNode(true));
+            const retryBtn = document.getElementById('update-now-btn');
+            retryBtn.addEventListener('click', startUpdate);
+          }, 3000);
+        }
+      })
+      .catch(error => {
+        console.error('Error starting update:', error);
+        updateStatus.textContent = 'Error starting update: ' + error.message;
+        updateLog.innerHTML += 'Error: ' + error.message + '\n';
+        updateProgressBar.classList.remove('bg-gradient-info');
+        updateProgressBar.classList.add('bg-gradient-danger');
+        
+        // Re-enable update button after delay
+        setTimeout(() => {
+          updateNowBtn.disabled = false;
+          updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">system_update</i> Try Again';
+          
+          // Replace the button to remove any existing listeners and add new one
+          updateNowBtn.replaceWith(updateNowBtn.cloneNode(true));
+          const retryBtn = document.getElementById('update-now-btn');
+          retryBtn.addEventListener('click', startUpdate);
+        }, 3000);
+      });
+    });
+    
+    // Start polling for update progress
+    function startUpdatePolling() {
+      if (updatePollingInterval) {
+        clearInterval(updatePollingInterval);
+      }
+      
+      // Poll every 2 seconds
+      updatePollingInterval = setInterval(pollUpdateProgress, 2000);
+      
+      // Also poll immediately
+      pollUpdateProgress();
+    }
+    
+    // Poll for update progress
+    function pollUpdateProgress() {
+      fetch('{{ route("tenant.settings.update-progress") }}')
+        .then(response => response.json())
+        .then(data => {
+          showUpdateProgress(data.progress, data.logs);
+          
+          // Check if update is completed or failed
+          if (data.completed || data.error || data.progress >= 100) {
+            clearInterval(updatePollingInterval);
+            
+            if (data.error) {
+              // Show error state
+              updateStatus.textContent = 'Update failed. See log for details.';
+              updateProgressBar.classList.remove('bg-gradient-info');
+              updateProgressBar.classList.add('bg-gradient-danger');
+              
+              // Re-enable update button to allow retry
+              updateNowBtn.disabled = false;
+              updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">system_update</i> Try Again';
+              
+              // Replace the button to remove any existing listeners and add new one
+              updateNowBtn.replaceWith(updateNowBtn.cloneNode(true));
+              const retryBtn = document.getElementById('update-now-btn');
+              retryBtn.addEventListener('click', startUpdate);
+            } else {
+              // Show success state
+              updateStatus.textContent = 'Update completed successfully!';
+              updateProgressBar.classList.remove('bg-gradient-info');
+              updateProgressBar.classList.add('bg-gradient-success');
+              
+              // Show reload button
+              updateNowBtn.disabled = false;
+              updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">refresh</i> Reload Application';
+              updateNowBtn.classList.remove('bg-gradient-success');
+              updateNowBtn.classList.add('bg-gradient-primary');
+              
+              // Change function of update button to reload page
+              updateNowBtn.replaceWith(updateNowBtn.cloneNode(true));
+              const reloadBtn = document.getElementById('update-now-btn');
+              reloadBtn.addEventListener('click', function() {
+                window.location.reload();
+              });
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error polling update progress:', error);
+          updateLog.innerHTML += 'Error polling progress: ' + error.message + '\n';
+          
+          // If we fail to poll for too long, assume something went wrong
+          if (updatePollingInterval) {
+            clearInterval(updatePollingInterval);
+            updateStatus.textContent = 'Lost connection to server. Update may still be in progress.';
+            
+            // Re-enable update button to allow checking again
+            updateNowBtn.disabled = false;
+            updateNowBtn.innerHTML = '<i class="material-symbols-rounded me-2">refresh</i> Check Status';
+          }
+        });
+    }
+    
+    // Show update progress in the UI
+    function showUpdateProgress(progress, logs) {
+      // Update progress bar
+      updateProgressBar.style.width = progress + '%';
+      updateProgressBar.setAttribute('aria-valuenow', progress);
+      
+      // Update status text based on progress
+      if (progress < 15) {
+        updateStatus.textContent = 'Creating backup...';
+      } else if (progress < 30) {
+        updateStatus.textContent = 'Downloading update package...';
+      } else if (progress < 45) {
+        updateStatus.textContent = 'Extracting update package...';
+      } else if (progress < 60) {
+        updateStatus.textContent = 'Applying updates...';
+      } else if (progress < 75) {
+        updateStatus.textContent = 'Running migrations and clearing caches...';
+      } else if (progress < 90) {
+        updateStatus.textContent = 'Updating version record...';
+      } else if (progress < 100) {
+        updateStatus.textContent = 'Cleaning up...';
+      } else {
+        updateStatus.textContent = 'Update completed!';
+      }
+      
+      // Update log output
+      if (logs && logs.length > 0) {
+        updateLog.innerHTML = logs.join('<br>');
+        // Scroll to bottom
+        updateLog.scrollTop = updateLog.scrollHeight;
+      }
+    }
+  });
 </script>
 @endpush 
