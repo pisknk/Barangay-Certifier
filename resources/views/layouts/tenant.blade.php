@@ -207,12 +207,23 @@
     <script>
       // Initialize theme settings on page load
       document.addEventListener('DOMContentLoaded', function() {
-        // Apply default theme first (light theme)
-        applyDefaultTheme();
+        // Load theme settings in this order:
+        // 1. Try from session storage (cross-page persistence)
+        // 2. Try from server/meta tag
+        // 3. Apply defaults if nothing found
         
-        // Then try to fetch from server (if user is logged in)
+        // First check session storage (preserves across page navigations)
+        if (!restoreThemeFromSessionStorage()) {
+          // If not in session storage, try meta tag (from server)
+          if (!restoreThemeFromMetaTag()) {
+            // If nothing found, apply default theme
+            applyDefaultTheme();
+          }
+        }
+        
+        // Fetch from server if needed (to ensure we have latest)
         fetchServerThemeSettings().then(success => {
-          console.log('Fetched theme settings successfully:', success);
+          console.log('Fetched theme settings from server:', success);
         });
         
         // Add event listener for the save button
@@ -228,10 +239,50 @@
             saveThemeSettings(true);
           });
         }
+        
+        // Add event listeners for theme options to auto-save changes
+        setupAutoSaveEvents();
       });
       
       // Track if settings have been changed since last save
       let settingsChanged = false;
+      
+      // Add event listeners to all theme options to auto-save
+      function setupAutoSaveEvents() {
+        // Sidebar color badges
+        document.querySelectorAll('.badge.filter').forEach(badge => {
+          badge.addEventListener('click', () => {
+            markSettingsAsChanged();
+            setTimeout(() => saveThemeSettings(false), 300); // Small delay for UI to update
+          });
+        });
+        
+        // Sidenav type buttons
+        document.querySelectorAll('button[data-class]').forEach(button => {
+          button.addEventListener('click', () => {
+            markSettingsAsChanged();
+            setTimeout(() => saveThemeSettings(false), 300);
+          });
+        });
+        
+        // Navbar fixed checkbox
+        const navbarFixed = document.getElementById('navbarFixed');
+        if (navbarFixed) {
+          navbarFixed.addEventListener('change', () => {
+            markSettingsAsChanged();
+            saveThemeSettings(false);
+          });
+        }
+        
+        // Dark mode checkbox
+        const darkMode = document.getElementById('dark-version');
+        if (darkMode) {
+          darkMode.addEventListener('change', () => {
+            markSettingsAsChanged();
+            saveThemeSettings(false);
+          });
+        }
+      }
       
       // Get the current user ID if authenticated
       function getCurrentUserId() {
@@ -245,23 +296,51 @@
         return userId ? `themeSettings_user_${userId}` : 'themeSettings_guest';
       }
       
+      // Get sessionStorage key for current user
+      function getSessionStorageKey() {
+        const userId = getCurrentUserId();
+        return userId ? `themeSettings_user_${userId}` : 'themeSettings_guest';
+      }
+      
+      // Restore theme from session storage (persists across page navigations)
+      function restoreThemeFromSessionStorage() {
+        try {
+          const storedSettings = sessionStorage.getItem(getSessionStorageKey());
+          if (storedSettings) {
+            console.log('Restoring theme from sessionStorage');
+            const settings = JSON.parse(storedSettings);
+            applyThemeSettings(settings);
+            return true;
+          }
+        } catch (e) {
+          console.error('Error restoring theme from sessionStorage:', e);
+        }
+        return false;
+      }
+      
+      // Restore theme from meta tag
+      function restoreThemeFromMetaTag() {
+        try {
+          const metaThemeSettings = document.querySelector('meta[name="user-theme-settings"]');
+          if (metaThemeSettings) {
+            console.log('Restoring theme from meta tag');
+            const settings = JSON.parse(metaThemeSettings.getAttribute('content'));
+            applyThemeSettings(settings);
+            
+            // Also store in sessionStorage for persistence
+            sessionStorage.setItem(getSessionStorageKey(), metaThemeSettings.getAttribute('content'));
+            // And in localStorage for long-term storage
+            localStorage.setItem(getLocalStorageKey(), metaThemeSettings.getAttribute('content'));
+            return true;
+          }
+        } catch (e) {
+          console.error('Error restoring theme from meta tag:', e);
+        }
+        return false;
+      }
+      
       // Apply default theme settings
       function applyDefaultTheme() {
-        // Check if we have theme settings in meta tag (from session)
-        const metaThemeSettings = document.querySelector('meta[name="user-theme-settings"]');
-        if (metaThemeSettings) {
-          try {
-            const settings = JSON.parse(metaThemeSettings.getAttribute('content'));
-            console.log('Applying theme settings from meta tag:', settings);
-            applyThemeSettings(settings);
-            // Also update localStorage for the current user
-            localStorage.setItem(getLocalStorageKey(), metaThemeSettings.getAttribute('content'));
-            return;
-          } catch (e) {
-            console.error('Error parsing theme settings from meta tag:', e);
-          }
-        }
-        
         // Set light theme by default
         const defaultSettings = {
           sidebarColor: 'dark',
@@ -270,6 +349,7 @@
           darkMode: false
         };
         
+        console.log('Applying default theme settings');
         applyThemeSettings(defaultSettings);
       }
       
@@ -310,8 +390,10 @@
               // Parse the settings
               const settings = JSON.parse(data.theme_settings);
               
-              // Save to user-specific localStorage key
-              localStorage.setItem(getLocalStorageKey(), data.theme_settings);
+              // Save to storage
+              const themeString = data.theme_settings;
+              localStorage.setItem(getLocalStorageKey(), themeString);
+              sessionStorage.setItem(getSessionStorageKey(), themeString);
               
               // Apply the settings
               applyThemeSettings(settings);
@@ -471,8 +553,12 @@
         
         console.log('Saving theme settings for user:', getCurrentUserId(), settings);
         
-        // Save to user-specific localStorage key
-        localStorage.setItem(getLocalStorageKey(), JSON.stringify(settings));
+        // Convert to JSON string
+        const settingsJson = JSON.stringify(settings);
+        
+        // Save to storage for persistence
+        localStorage.setItem(getLocalStorageKey(), settingsJson);
+        sessionStorage.setItem(getSessionStorageKey(), settingsJson);
         
         // If we have CSRF token (logged in), save to server
         const csrfToken = document.querySelector('meta[name="csrf-token"]');
@@ -556,23 +642,6 @@
             }
           });
         }
-      }
-      
-      function restoreThemeSettings() {
-        // Get saved settings from localStorage for the current user
-        const savedSettings = localStorage.getItem(getLocalStorageKey());
-        if (savedSettings) {
-          try {
-            const settings = JSON.parse(savedSettings);
-            console.log('Restoring theme settings from localStorage for', getCurrentUserId() || 'guest', settings);
-            applyThemeSettings(settings);
-            return true;
-          } catch (e) {
-            console.error('Error parsing localStorage theme settings:', e);
-            return false;
-          }
-        }
-        return false;
       }
       
       // Warn about unsaved changes when closing the configurator
