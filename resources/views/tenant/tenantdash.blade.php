@@ -31,7 +31,7 @@
           Quick glance at Active Members, Income, and More!
         </p>
       </div>
-      @if(Auth::guard('tenant')->user()->isAdmin())
+      @if(\Illuminate\Support\Facades\Auth::guard('tenant')->user()->isAdmin())
       <div>
         <a href="{{ route('tenant.users.index') }}" class="btn btn-dark mb-0">
           <i class="material-symbols-rounded">group</i> Manage Users

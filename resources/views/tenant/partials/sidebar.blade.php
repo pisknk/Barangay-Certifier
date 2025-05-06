@@ -25,7 +25,7 @@
   <hr class="horizontal dark mt-0 mb-2" />
   <div class="collapse navbar-collapse w-auto" id="sidenav-collapse-main">
     <ul class="navbar-nav">
-      @if(Auth::guard('tenant')->user()->isAdmin())
+      @if(\Illuminate\Support\Facades\Auth::guard('tenant')->user()->isAdmin())
       <li class="nav-item">
         <a class="nav-link {{ request()->routeIs('tenant.users.*') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('tenant.users.index') }}">
           <i class="material-symbols-rounded opacity-5">group</i>

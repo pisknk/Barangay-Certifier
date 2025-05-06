@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @if(Auth::guard('tenant')->check())
-      @php $currentUserId = Auth::guard('tenant')->id(); @endphp
+    @if(\Illuminate\Support\Facades\Auth::guard('tenant')->check())
+      @php $currentUserId = \Illuminate\Support\Facades\Auth::guard('tenant')->id(); @endphp
       <meta name="current-user-id" content="{{ $currentUserId }}">
       @if(session('user_'.$currentUserId.'_theme_settings'))
       <meta name="user-theme-settings" content="{{ session('user_'.$currentUserId.'_theme_settings') }}">

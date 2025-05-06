@@ -136,6 +136,7 @@ return [
 
     'aliases' => [
         'App' => Illuminate\Support\Facades\App::class,
+        'Auth' => Illuminate\Support\Facades\Auth::class,
         'Cache' => Illuminate\Support\Facades\Cache::class,
         'CachedAsset' => App\Facades\CachedAsset::class,
         'URL' => Illuminate\Support\Facades\URL::class,
