@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\TenantController;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('tenants')->group(function () {
     Route::get('/', [TenantController::class, 'index']);

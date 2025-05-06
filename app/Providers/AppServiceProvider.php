@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Observers\TenantObserver;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use App\Helpers\AssetHelper;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,7 +15,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register the CachedAsset facade
+        $this->app->bind('cached-asset', function () {
+            return new AssetHelper();
+        });
     }
 
     /**

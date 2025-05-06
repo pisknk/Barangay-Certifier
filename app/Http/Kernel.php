@@ -23,6 +23,7 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\DebugTenancyDomain::class,
         \App\Http\Middleware\TenantAssetMiddleware::class,
+        \App\Http\Middleware\CacheAssets::class,
     ];
 
     /**
@@ -83,5 +84,6 @@ class Kernel extends HttpKernel
         'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
         'tenant.admin' => \App\Http\Middleware\TenantAdminMiddleware::class,
         'subscription.feature' => \App\Http\Middleware\CheckSubscriptionFeatures::class,
+        'cache.assets' => \App\Http\Middleware\CacheAssets::class,
     ];
 } 
