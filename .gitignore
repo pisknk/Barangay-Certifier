@@ -21,3 +21,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+*.pdf
+.DS_Store
+.DS_Store
+storage/tenantsan-jose/.DS_Store
