@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
 use App\Mail\WelcomeMail;
 use App\Mail\ApprovedMail;
 use Stancl\Tenancy\Database\TenantCollection;
@@ -315,28 +316,28 @@ class TenantController extends Controller
                 tenancy()->initialize($tenant);
                 
                 // Run tenant-specific migrations
-                $outputMigrate = \Artisan::call('migrate', [
+                $outputMigrate = \Illuminate\Support\Facades\Artisan::call('migrate', [
                     '--path' => 'database/migrations/tenant',
                     '--force' => true,
                 ]);
                 
-                Log::info("Tenant-specific migration output for {$tenant->id}: " . \Artisan::output());
+                Log::info("Tenant-specific migration output for {$tenant->id}: " . \Illuminate\Support\Facades\Artisan::output());
                 
                 // Run all migrations for tenant using the tenants:migrate command
-                $output = \Artisan::call('tenants:migrate', [
+                $output = \Illuminate\Support\Facades\Artisan::call('tenants:migrate', [
                     '--tenants' => [$tenant->id],
                     '--force' => true
                 ]);
                 
-                Log::info("Global migration output for tenant {$tenant->id}: " . \Artisan::output());
+                Log::info("Global migration output for tenant {$tenant->id}: " . \Illuminate\Support\Facades\Artisan::output());
                 
                 // Create admin user in tenant database without setting a password yet
                 // The password will be set by the user through the setup link
-                \Artisan::call('tenant:create-admin', [
+                \Illuminate\Support\Facades\Artisan::call('tenant:create-admin', [
                     'tenant_id' => $tenant->id
                 ]);
                 
-                Log::info("Admin user creation output for {$tenant->id}: " . \Artisan::output());
+                Log::info("Admin user creation output for {$tenant->id}: " . \Illuminate\Support\Facades\Artisan::output());
                 
                 // End the tenant context
                 tenancy()->end();

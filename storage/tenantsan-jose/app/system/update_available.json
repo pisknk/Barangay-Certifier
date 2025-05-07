@@ -1,9 +1,9 @@
 {
     "current_version": "2.2",
-    "latest_version": "2.6",
-    "version_name": "2.6",
-    "release_notes": "What's New?\r\n\r\n- Theme is persistent through logouts\r\n- Fixed a security vulnerability (thanks dependabot)",
-    "release_date": "2025-05-06T18:08:47Z",
-    "check_time": 1746555876,
-    "download_url": "https:\/\/api.github.com\/repos\/pisknk\/Barangay-Certifier\/zipball\/2.6"
+    "latest_version": "2.6.1",
+    "version_name": "2.6.1",
+    "release_notes": "What's New?\r\n\r\n- Improved Software Update logic",
+    "release_date": "2025-05-06T18:53:49Z",
+    "check_time": 1746588001,
+    "download_url": "https:\/\/api.github.com\/repos\/pisknk\/Barangay-Certifier\/zipball\/2.6.1"
 }

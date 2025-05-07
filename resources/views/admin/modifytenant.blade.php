@@ -286,23 +286,7 @@
                     @endif
                   </p>
                     <hr class="dark horizontal my-0" />
-                  
-                    <form method="POST" action="{{ route('admin.tenants.destroy', $tenant->id ?? 1) }}" onsubmit="return confirm('Are you sure you want to remove this tenant? This cannot be undone.');" class="mt-4">
-                    @csrf
-                    @method('DELETE')
-                      <p class="text-sm text-center">
-                      Remove tenant if they made a mistake on their domain name.<br />
-                      And let them signup again.
-                    </p>
-                    <div class="text-center">
-                      <button
-                        type="submit"
-                          class="btn bg-gradient-danger w-100 mb-2"
-                      >
-                        REMOVE Tenant
-                      </button>
-                    </div>
-                  </form>
+                    
                 </div>
 
                 <!-- Right side: Plan picker -->
